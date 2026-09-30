@@ -311,7 +311,7 @@ const MCPServerEdit: React.FC<MCPServerEditProps> = ({
         };
         setToken(mcpServer.server_id, browserHeldToken, userID);
         toast.success(
-          "Token held for this browser session. Tools can now be loaded and configured; the token is not saved to LiteLLM.",
+          "Token held for this browser session. Tools can now be loaded and configured; the token is not saved to EmbRouter.",
         );
         return;
       }
@@ -937,7 +937,7 @@ const MCPServerEdit: React.FC<MCPServerEditProps> = ({
                   label={
                     <span className="text-sm font-medium text-foreground flex items-center">
                       Max Concurrent Requests (optional)
-                      <SimpleTooltip content="Maximum number of tool calls LiteLLM will run against this server at the same time. Additional calls wait for a free slot. Leave blank for no limit.">
+                      <SimpleTooltip content="Maximum number of tool calls EmbRouter will run against this server at the same time. Additional calls wait for a free slot. Leave blank for no limit.">
                         <Info className="ml-2 size-4 text-info hover:text-info/80 cursor-help" />
                       </SimpleTooltip>
                     </span>
@@ -1083,8 +1083,8 @@ const MCPServerEdit: React.FC<MCPServerEditProps> = ({
                         <TriangleAlert />
                         <AlertTitle>This server has no OAuth flow set</AlertTitle>
                         <AlertDescription>
-                          Choose Machine-to-Machine (M2M) or Interactive (PKCE) so LiteLLM authenticates it the way you
-                          intend, then save. Until it is set, LiteLLM falls back to interactive per-user auth and treats
+                          Choose Machine-to-Machine (M2M) or Interactive (PKCE) so EmbRouter authenticates it the way you
+                          intend, then save. Until it is set, EmbRouter falls back to interactive per-user auth and treats
                           a machine-to-machine credential shape conservatively.
                         </AlertDescription>
                       </Alert>
@@ -1218,7 +1218,7 @@ const MCPServerEdit: React.FC<MCPServerEditProps> = ({
                       label={
                         <span className="text-sm font-medium text-foreground flex items-center">
                           AWS Role ARN
-                          <SimpleTooltip content="Optional. IAM role ARN to assume via STS before signing. If set, LiteLLM calls sts:AssumeRole to get temporary credentials.">
+                          <SimpleTooltip content="Optional. IAM role ARN to assume via STS before signing. If set, EmbRouter calls sts:AssumeRole to get temporary credentials.">
                             <Info className="ml-2 size-4 text-info hover:text-info/80 cursor-help" />
                           </SimpleTooltip>
                         </span>

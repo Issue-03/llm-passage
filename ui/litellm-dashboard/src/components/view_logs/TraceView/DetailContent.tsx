@@ -8,7 +8,7 @@ import type { ErrorSource } from "./traceTree";
 import type { Span, SpanDetail, TraceMessage } from "./traceTypes";
 import { errorSource, parseMessages, prettyPayload } from "./traceUtils";
 
-const ERROR_SOURCE_LABEL: Record<ErrorSource, string> = { tool: "Tool", model: "Model", litellm: "LiteLLM" };
+const ERROR_SOURCE_LABEL: Record<ErrorSource, string> = { tool: "Tool", model: "Model", litellm: "EmbRouter" };
 const TRACEBACK_MARKER = "Traceback (most recent call last):";
 
 /** LangSmith records `repr(exc)` + traceback with no separator; keep the exception line. */

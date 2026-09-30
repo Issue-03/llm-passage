@@ -232,7 +232,7 @@ const MCPServerCard: FC<MCPServerCardProps> = ({
               />
               <TooltipContent>
                 This OAuth server has no flow set (Machine-to-Machine vs Interactive). Open it and choose an OAuth Flow
-                Type so LiteLLM authenticates it as you intend.
+                Type so EmbRouter authenticates it as you intend.
               </TooltipContent>
             </Tooltip>
           )}

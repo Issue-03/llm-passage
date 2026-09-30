@@ -77,7 +77,7 @@ export function RoutingGroupUsagePanel({ group, baseUrl }: RoutingGroupUsagePane
           </>
         ) : (
           <>
-            Callers request any model in the group by name; LiteLLM picks a deployment behind the scenes using the{" "}
+            Callers request any model in the group by name; EmbRouter picks a deployment behind the scenes using the{" "}
             <span className="font-medium text-foreground">{formatStrategyLabel(group.routing_strategy)}</span> strategy.
           </>
         )}

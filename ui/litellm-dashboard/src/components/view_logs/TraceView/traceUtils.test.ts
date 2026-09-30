@@ -234,7 +234,7 @@ describe("revealSpanInState", () => {
 });
 
 describe("errorSource", () => {
-  it("blames the tool, LiteLLM, or the model", () => {
+  it("blames the tool, EmbRouter, or the model", () => {
     expect(errorSource(span({ span_id: "a", status: "ok" }))).toBeNull();
     const failure = (span_id: string, type: Span["type"], error: string): Span => {
       const failed: SpanOverrides = { span_id, type, error, status: "error" };

@@ -80,7 +80,7 @@ const details: Record<string, SpanDetail> = {
   llm1: {
     span_id: "llm1",
     input: JSON.stringify([
-      { role: "system", content: "You are a LiteLLM support agent." },
+      { role: "system", content: "You are an EmbRouter support agent." },
       { role: "user", content: "Customer acme-404 says billing is wrong." },
     ]),
     output: JSON.stringify({
@@ -123,7 +123,7 @@ describe("DetailPane", () => {
     expect(screen.getByRole("tab", { name: "Content" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Request" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Attributes" })).toBeInTheDocument();
-    expect(await screen.findByText("You are a LiteLLM support agent.")).toBeInTheDocument();
+    expect(await screen.findByText("You are an EmbRouter support agent.")).toBeInTheDocument();
     expect(screen.getByText("get_customer_plan")).toBeInTheDocument();
     expect(vi.mocked(agentTraceSpanCall)).toHaveBeenCalledWith("sk-test", "t1", "llm1");
   });
@@ -138,7 +138,7 @@ describe("DetailPane", () => {
     expect(await screen.findByText(/"customer_id": "acme-404"/)).toBeInTheDocument();
   });
 
-  it("shows the LiteLLM request facts on the Request tab", async () => {
+  it("shows the EmbRouter request facts on the Request tab", async () => {
     const user = userEvent.setup();
     renderPane(spanRow(llm));
     await user.click(screen.getByRole("tab", { name: "Request" }));

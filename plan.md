@@ -95,6 +95,34 @@ See [README.md](README.md) for the exact commands.
 - For development, `npm run dev` gives hot reload against the proxy on :4000. The exact dev setup (`NEXT_PUBLIC_BASE_URL` / `NEXT_PUBLIC_USE_REWRITES`) gets confirmed during Phase 0.
 - The logo comes from the backend: the navbar loads `/get_image`, which serves `litellm/proxy/logo.jpg` and `logo_dark.png`. The favicon comes from `/get_favicon`.
 
+### Brand (from https://emb.global)
+
+**Assets** are in `branding/`:
+
+| File | Size | Use |
+|---|---|---|
+| `logo-light.png` | 1220×537 | dark text on a light background → replaces `litellm/proxy/logo.jpg` |
+| `logo-dark.png` | 1173×516 | white text for dark mode → replaces `litellm/proxy/logo_dark.png` |
+| `favicon.ico` | 32×32 | green mark → replaces `_experimental/out/favicon.ico` and the UI source favicon |
+
+**Colors**, sampled from the logo and the site's CSS:
+
+| Role | Color | Source |
+|---|---|---|
+| Primary (brand green) | `#47BF72` | logo mark and favicon |
+| Primary hover / strong | `#16A34A` | site `--green-600` |
+| Primary accent | `#22C55E` / `#4ADE80` | site `--green-500` / `--green-400` |
+| Primary tint (backgrounds) | `#F0FDF4` | site `--green-50` |
+| Logo text / near-black | `#282828` | logo |
+| Text | `#0F172A`, secondary `#334155`, muted `#64748B` | site grays |
+| Borders / surfaces | `#E2E8F0`, `#F1F5F9`, `#F8FAFC` | site grays |
+| Dark mode background | `#05080F`, `#090E1A`, cards `#0E1726` | site `--dark*` |
+| Warning / highlight | `#F59E0B` | site `--amber` |
+
+**Font:** the site uses Inter (plus Geist / Geist Mono).
+
+**How it applies:** swap the UI's primary accent (buttons, links, active nav) for the green, and use the slate grays for text and borders. Check the result in both light and dark mode.
+
 ### Key rule: the backend still says "litellm" at this point
 
 In `ui/litellm-dashboard/src` there are about 4,600 mentions of "litellm" across about 570 files. **Most are part of how the UI talks to the backend, not text users see.** If we change them in Phase 1, the UI breaks. So in Phase 1 we change only what is visible on screen.
@@ -106,12 +134,13 @@ In `ui/litellm-dashboard/src` there are about 4,600 mentions of "litellm" across
 | Labels, help text, tooltips, empty states, modals ("What is LiteLLM?", "LiteLLM Model Name", "Thanks for using LiteLLM!", …) | API paths and headers (`x-litellm-*`) |
 | Logo and favicon files: replace `litellm/proxy/logo.jpg`, `logo_dark.png` and the favicon, same file names | `assetPrefix: "/litellm-asset-prefix"` in `next.config.mjs` (the backend expects it) |
 | Theme colors, if wanted | localStorage keys (`litellm_*`) and the `token` cookie |
-| **Docs links** (219 links to `docs.litellm.ai`): remove, or point at your own docs | Folder name `ui/litellm-dashboard` |
-| Code snippets shown to users (e.g. "use with the OpenAI SDK"): brand wording only, not import names | Test files' internal identifiers |
+| Code snippets shown to users (e.g. "use with the OpenAI SDK"): brand wording only, not import names | Folder name `ui/litellm-dashboard` |
+| | Test files' internal identifiers |
+| | **Docs links** (219 links to `docs.litellm.ai`): moved to Phase 3, still undecided |
 
 ### Method
 
-1. Build a list of candidate lines: `LiteLLM` inside JSX text, string props (`title`, `label`, `placeholder`, `tooltip`, `description`), and `docs.litellm.ai` URLs. Exclude `LiteLLM_*` identifiers and `*Params` types.
+1. Build a list of candidate lines: `LiteLLM` inside JSX text, and string props (`title`, `label`, `placeholder`, `tooltip`, `description`). Leave `docs.litellm.ai` URLs for Phase 3. Exclude `LiteLLM_*` identifiers and `*Params` types.
 2. Review the list, then replace. Visible text becomes **"EmbRouter"**.
 3. Update the unit tests that check those visible strings (`*.test.tsx`).
 4. `npm run lint && npm run test:unit`, then `npm run build`, copy `out/` into `litellm/proxy/_experimental/out/`, and restart the proxy.
@@ -120,9 +149,39 @@ In `ui/litellm-dashboard/src` there are about 4,600 mentions of "litellm" across
 
 ### Done when
 
-- No "LiteLLM" text, logo or docs link is visible anywhere in the UI.
+- No "LiteLLM" text or logo is visible anywhere in the UI. Docs links still point to `docs.litellm.ai` until Phase 3.
 - The UI works the same as in the baseline: login, keys, models, teams, spend, playground.
 - Committed.
+
+### Status (2026-10-01): done except a click-through check
+
+- **Text:** 198 source lines in 94 files, plus 88 test lines, rebranded. The rules live in the script `rebrand_ui.py` (session scratchpad), in this order:
+  - `🚅 LiteLLM` → `EmbRouter`
+  - `LiteLLM Enterprise` → `Enterprise`
+  - `LiteLLM Proxy` → `EmbRouter`
+  - other visible `LiteLLM` / `Litellm` → `EmbRouter`
+  - `a EmbRouter` → `an EmbRouter`
+  - code comments skipped
+- **Kept on purpose** (the backend matches on them, or they link to real LiteLLM sites):
+  - guardrail provider names ("LiteLLM Content Filter", "LiteLLM LLM as a Judge")
+  - the `GuardrailsOverview` provider key `LiteLLM`
+  - the `PgVector` enum "(LiteLLM Connector)"
+  - the routing keyword `LITELLM ESCALATE` and the `LITELLM_API_KEY` env var
+  - the "LiteLLM Slack community" / "LiteLLM on GitHub" buttons (Phase 2: hide?)
+  - "LiteLLM Docs: …" link text (Phase 3, with the docs links)
+- **Colors** (`src/app/globals.css`):
+  - light mode: `--primary` / `--sidebar-primary` = `#15803D` (5.0:1 contrast with white text); `--ring` / `--chart-1` = brand `#47BF72`
+  - dark mode: primary, ring, chart-1 and sidebar-primary = `#47BF72`, with foreground `#05080F`
+- **Logo and favicon:**
+  - `litellm/proxy/logo.jpg`: the EMB light logo, flattened onto white, 1000×440
+  - `logo_dark.png`: the EMB dark logo
+  - `ui/litellm-dashboard/src/app/favicon.ico`: the EMB favicon
+- **Checks:**
+  - 90 affected UI test files pass (1,606 tests), run with `LANG=en_US.UTF-8`.
+  - The machine locale `en-IN` formats numbers as "10,00,000", which breaks 3 tests that don't involve the rebrand.
+  - ESLint: 0 errors.
+  - `npm run build` succeeds; the output is copied to `_experimental/out/`, and title, logos and favicon are served correctly.
+- **Still showing "LiteLLM":** text that comes **from the backend** (guardrail names, some error messages, `litellm_version` labels) until Phase 3. The collapsed sidebar squeezes the logo into a 28px square.
 
 ---
 
@@ -157,7 +216,8 @@ Done as a separate project once the UI is settled. Scale: about 90,000 mentions 
 3. **Outside services** get their own handling, not the blanket rename:
    - Model price list: it's normally fetched from BerriAI's GitHub, so switch to the bundled local file.
    - Telemetry and license checks that call BerriAI: turn them off or remove them.
-   - `docs.litellm.ai` and `docker.litellm.ai` URLs: remove.
+   - `docker.litellm.ai` URLs: remove.
+   - **Docs links** (219 in the UI, plus backend help text): remove them, or point them at your own docs site. **Undecided.**
 4. **Database:**
    - Rename the 87 `LiteLLM_*` Prisma models to `EmbRouter_*` in all 3 copies of `schema.prisma` and in the raw SQL (65 Python files).
    - Squash the 193 migrations into one starting migration (`prisma migrate diff --from-empty`).
@@ -190,5 +250,5 @@ After Phase 3, merging upstream LiteLLM changes is basically impossible. Securit
 
 1. **Name casing:** display name "EmbRouter"; package, CLI and DB `embrouter`; env vars `EMBROUTER_*`. OK?
 2. **Logo:** do you have logo files (light and dark) and a favicon, or should I make a text placeholder?
-3. **Docs links in the UI:** remove them, or point them at your own docs site?
+3. **Docs links (Phase 3):** remove them, or point them at your own docs site? Still open.
 4. **Phase 3 database:** OK to squash the migrations and start with a fresh local database?

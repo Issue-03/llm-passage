@@ -42,7 +42,7 @@ from langchain_openai import ChatOpenAI
 
 llm = ChatOpenAI(model="claude-sonnet-4-5", base_url="{PROXY}/v1", api_key=os.environ["LITELLM_API_KEY"])
 agent = create_agent(model=llm, tools=[], name="my_agent")
-agent.invoke({"messages": [{"role": "user", "content": "What is LiteLLM?"}]})`,
+agent.invoke({"messages": [{"role": "user", "content": "What is EmbRouter?"}]})`,
   },
   {
     id: "langchain",
@@ -52,7 +52,7 @@ agent.invoke({"messages": [{"role": "user", "content": "What is LiteLLM?"}]})`,
     quickstart: `from langchain_openai import ChatOpenAI
 
 llm = ChatOpenAI(model="claude-sonnet-4-5", base_url="{PROXY}/v1", api_key=os.environ["LITELLM_API_KEY"])
-llm.invoke("What is LiteLLM?")`,
+llm.invoke("What is EmbRouter?")`,
   },
   {
     id: "openai-agents",
@@ -64,7 +64,7 @@ from openai import AsyncOpenAI
 
 client = AsyncOpenAI(base_url="{PROXY}/v1", api_key=os.environ["LITELLM_API_KEY"])
 agent = Agent(name="my_agent", model=OpenAIChatCompletionsModel(model="claude-sonnet-4-5", openai_client=client))
-print(Runner.run_sync(agent, "What is LiteLLM?").final_output)`,
+print(Runner.run_sync(agent, "What is EmbRouter?").final_output)`,
   },
   {
     id: "crewai",
@@ -75,7 +75,7 @@ print(Runner.run_sync(agent, "What is LiteLLM?").final_output)`,
 
 llm = LLM(model="openai/claude-sonnet-4-5", base_url="{PROXY}/v1", api_key=os.environ["LITELLM_API_KEY"])
 agent = Agent(role="Researcher", goal="Answer questions", backstory="", llm=llm)
-task = Task(description="What is LiteLLM?", expected_output="A short answer", agent=agent)
+task = Task(description="What is EmbRouter?", expected_output="A short answer", agent=agent)
 Crew(agents=[agent], tasks=[task]).kickoff()`,
   },
   {
@@ -89,7 +89,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 
 provider = OpenAIProvider(base_url="{PROXY}/v1", api_key=os.environ["LITELLM_API_KEY"])
 agent = Agent(OpenAIModel("claude-sonnet-4-5", provider=provider), name="my_agent", instrument=True)
-print(agent.run_sync("What is LiteLLM?").output)`,
+print(agent.run_sync("What is EmbRouter?").output)`,
   },
   {
     id: "llamaindex",
@@ -99,7 +99,7 @@ print(agent.run_sync("What is LiteLLM?").output)`,
     quickstart: `from llama_index.llms.openai_like import OpenAILike
 
 llm = OpenAILike(model="claude-sonnet-4-5", api_base="{PROXY}/v1", api_key=os.environ["LITELLM_API_KEY"], is_chat_model=True)
-print(llm.complete("What is LiteLLM?"))`,
+print(llm.complete("What is EmbRouter?"))`,
   },
   {
     id: "otel",
@@ -120,7 +120,7 @@ with tracer.start_as_current_span("my_agent", attributes=attrs):
 const HIGHLIGHTS = [
   ["Input and output", "What the agent was asked and what it answered, at the top of every run."],
   ["Every step, nested", "LLM calls, tool calls and subagents in one tree, with timing."],
-  ["Failures pinpointed", "See whether the tool, the model or LiteLLM broke."],
+  ["Failures pinpointed", "See whether the tool, the model or EmbRouter broke."],
   ["Hand off to Claude / Codex", "Copy one command and your coding agent debugs the run."],
 ] as const;
 
@@ -137,7 +137,7 @@ export const tracingEnvSnippet = (proxyUrl: string): string =>
 
 export const codingAgentPrompt = (proxyUrl: string, guide: Pick<FrameworkGuide, "label" | "packages">): string =>
   [
-    `Send this ${guide.label} project's OpenTelemetry traces to LiteLLM.`,
+    `Send this ${guide.label} project's OpenTelemetry traces to EmbRouter.`,
     "",
     `1. Add these dependencies: ${installPackages(guide)}`,
     "2. Set these env vars wherever the project loads config (.env, settings, deployment manifests):",
@@ -145,9 +145,9 @@ export const codingAgentPrompt = (proxyUrl: string, guide: Pick<FrameworkGuide, 
     '   OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer $LITELLM_API_KEY"',
     "   OTEL_SERVICE_NAME=<a short name for this agent>",
     "3. Start the app through OTEL auto-instrumentation: opentelemetry-instrument <existing start command>.",
-    `4. Point every LLM client at LiteLLM: base_url=${proxyUrl}/v1, api key from LITELLM_API_KEY.`,
+    `4. Point every LLM client at EmbRouter: base_url=${proxyUrl}/v1, api key from LITELLM_API_KEY.`,
     "5. Give each agent and subagent a name so runs are easy to read.",
-    "6. Run the agent once and confirm the run shows up in the LiteLLM UI under Logs > Agent Traces.",
+    "6. Run the agent once and confirm the run shows up in the EmbRouter UI under Logs > Agent Traces.",
     "",
     "Never hardcode the key. Read it from LITELLM_API_KEY.",
   ].join("\n");
@@ -246,7 +246,7 @@ function SetupStatus({ detail, connected }: { detail: string | null; connected: 
         <span className={pill}>
           <Check className="size-3" /> Receiving traces
         </span>
-        <span className={hint}>Add another agent: point its OpenTelemetry exporter at LiteLLM.</span>
+        <span className={hint}>Add another agent: point its OpenTelemetry exporter at EmbRouter.</span>
       </>
     );
   }
@@ -263,7 +263,7 @@ function SetupStatus({ detail, connected }: { detail: string | null; connected: 
   return (
     <>
       <span className={pill}>Tracing is not enabled</span>
-      <span className={hint}>Turn on tracing in the proxy config, then point your agent at LiteLLM.</span>
+      <span className={hint}>Turn on tracing in the proxy config, then point your agent at EmbRouter.</span>
     </>
   );
 }
@@ -273,7 +273,7 @@ function WhatYoullSee() {
     <section className="mt-6">
       <h2 className="text-[15px] font-medium text-foreground">What you&apos;ll see</h2>
       <div className="mt-3 overflow-hidden rounded-lg border border-border bg-background shadow-sm">
-        <img src={previewImg.src} alt="Preview of an agent trace in LiteLLM" className="block w-full" />
+        <img src={previewImg.src} alt="Preview of an agent trace in EmbRouter" className="block w-full" />
       </div>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {HIGHLIGHTS.map(([title, body]) => (
@@ -343,7 +343,7 @@ export function TracingSetupCard({ detail, connected = false }: { detail: string
 
         <div className="mt-10 max-w-[860px]">
           <h2 className="text-[15px] font-medium text-foreground">
-            Send your agent&apos;s OpenTelemetry traces to LiteLLM
+            Send your agent&apos;s OpenTelemetry traces to EmbRouter
           </h2>
           <p className="mt-1 text-[13px] text-muted-foreground">
             Standard OTLP. Pick your framework, set three env vars, and run your agent as usual.

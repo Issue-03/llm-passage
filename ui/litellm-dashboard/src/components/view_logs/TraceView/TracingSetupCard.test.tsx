@@ -30,7 +30,7 @@ describe("TracingSetupCard", () => {
     expect(screen.getByRole("radio", { name: "CrewAI" })).toBeChecked();
     expect(card).toHaveTextContent("pip install -U opentelemetry-distro");
     expect(card).toHaveTextContent("crewai openinference-instrumentation-crewai");
-    expect(card).toHaveTextContent("Send this CrewAI project's OpenTelemetry traces to LiteLLM.");
+    expect(card).toHaveTextContent("Send this CrewAI project's OpenTelemetry traces to EmbRouter.");
     expect(card).not.toHaveTextContent("openinference-instrumentation-langchain");
   });
 

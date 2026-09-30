@@ -28,7 +28,7 @@ import {
 /** What "Copy for agent" puts on the clipboard: a one-liner Claude Code / Codex can run. */
 export const agentHandoffText = (traceId: string, spanId?: string | null): string => {
   const url = `${getProxyBaseUrl().replace(/\/$/, "")}/v1/traces/${traceId}?format=md${spanId ? `&span_id=${spanId}` : ""}`;
-  const what = spanId ? "this step of a LiteLLM agent trace" : "this LiteLLM agent trace";
+  const what = spanId ? "this step of an EmbRouter agent trace" : "this EmbRouter agent trace";
   return `Read ${what} and explain what happened and why it failed:\ncurl -s -H "Authorization: Bearer $LITELLM_API_KEY" "${url}"`;
 };
 

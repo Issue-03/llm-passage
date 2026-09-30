@@ -23,7 +23,7 @@ vi.mock("./networking", async (importOriginal) => {
     apiClient: { ...actual.apiClient, get: apiGetMock },
     modelHubPublicModelsCall: vi.fn().mockResolvedValue([]),
     getPublicModelHubInfo: vi.fn().mockResolvedValue({
-      docs_title: "LiteLLM Gateway",
+      docs_title: "EmbRouter Gateway",
       custom_docs_description: null,
       litellm_version: "1.0.0",
       useful_links: {},

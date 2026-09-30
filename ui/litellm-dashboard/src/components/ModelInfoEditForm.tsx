@@ -467,8 +467,8 @@ const ModelInfoEditForm: React.FC<ModelInfoEditFormProps> = ({
             {textField("model_name", "Model Name", "Enter model name", localModelData.model_name)}
             {textField(
               "litellm_model_name",
-              "LiteLLM Model Name",
-              "Enter LiteLLM model name",
+              "EmbRouter Model Name",
+              "Enter EmbRouter model name",
               localModelData.litellm_model_name,
             )}
 
@@ -781,9 +781,9 @@ const ModelInfoEditForm: React.FC<ModelInfoEditFormProps> = ({
 
             <div>
               <FieldLabel>
-                LiteLLM Params
+                EmbRouter Params
                 <DocsHint
-                  text="Optional litellm params used for making a litellm.completion() call. Some params are automatically added by LiteLLM."
+                  text="Optional litellm params used for making a litellm.completion() call. Some params are automatically added by EmbRouter."
                   href="https://docs.litellm.ai/docs/completion/input"
                 />
               </FieldLabel>

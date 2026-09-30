@@ -64,7 +64,7 @@ export function RequestDetail({ span, accessToken, traceStartMs }: RequestDetail
           )}
         </div>
         <div className="mt-1.5 font-mono text-[11px] break-all text-foreground">
-          {span.litellm_request_id ?? "Not linked to a LiteLLM request"}
+          {span.litellm_request_id ?? "Not linked to an EmbRouter request"}
         </div>
       </div>
       {span.litellm_request_id && (

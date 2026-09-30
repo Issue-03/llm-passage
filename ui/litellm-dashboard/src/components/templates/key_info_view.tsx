@@ -571,7 +571,7 @@ export default function KeyInfoView({
         backButtonText={backButtonText}
         regenerateDisabled={!premiumUser}
         regenerateTooltip={
-          !premiumUser ? "This is a LiteLLM Enterprise feature, and requires a valid key to use." : undefined
+          !premiumUser ? "This is an Enterprise feature, and requires a valid key to use." : undefined
         }
       />
 
@@ -722,7 +722,7 @@ export default function KeyInfoView({
                           <Info className="size-3 text-muted-foreground" />
                         </HoverCardTrigger>
                         <HoverCardContent className="w-80">
-                          Lifetime tracking started with LiteLLM v1.103.0 on September 19, 2026 and was not backfilled,
+                          Lifetime tracking started with v1.103.0 on September 19, 2026 and was not backfilled,
                           so this key&apos;s lifetime spend only counts usage since that upgrade.
                         </HoverCardContent>
                       </HoverCard>

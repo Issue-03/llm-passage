@@ -54,6 +54,21 @@ To use a real model, add its API key to `.env` (e.g. `OPENAI_API_KEY`) and uncom
 - Proxy: `Ctrl+C`
 - Database: `docker compose stop db`. Data is kept in the `litellm_postgres_data` volume. `docker compose down -v` deletes it.
 
+## Rebuild the admin UI
+
+After changing anything in `ui/litellm-dashboard/src`:
+
+```bash
+cd ui/litellm-dashboard
+nvm use                 # Node 24 from .nvmrc
+npm ci                  # first time only
+npm run build
+rm -rf ../../litellm/proxy/_experimental/out/* && cp -r out/* ../../litellm/proxy/_experimental/out/ && rm -rf out
+```
+
+Then restart the proxy. For UI tests, run only the files you touched (the full suite is very large), with a US locale:
+`LANG=en_US.UTF-8 npx vitest run <test files>`.
+
 ## Tests
 
 Offline unit tests (no API keys or network needed):
