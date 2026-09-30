@@ -1,0 +1,18 @@
+# Copy to config.yaml (gitignored), then: uv run --env-file .env litellm --config config.yaml --port 4000
+model_list:
+  # Offline test model: returns a canned reply, no provider key needed.
+  - model_name: mock-gpt
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: fake-key
+      mock_response: "Hello from the mock model!"
+
+  # Real model example: set OPENAI_API_KEY in .env, then uncomment.
+  # - model_name: gpt-4o-mini
+  #   litellm_params:
+  #     model: openai/gpt-4o-mini
+  #     api_key: os.environ/OPENAI_API_KEY
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
