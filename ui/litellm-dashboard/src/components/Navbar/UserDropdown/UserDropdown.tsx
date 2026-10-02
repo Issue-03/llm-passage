@@ -1,28 +1,14 @@
 import useAuthorized from "@/app/(dashboard)/hooks/useAuthorized";
-import { useDisableBlogPosts } from "@/app/(dashboard)/hooks/useDisableBlogPosts";
-import { useDisableBouncingIcon } from "@/app/(dashboard)/hooks/useDisableBouncingIcon";
-import { useDisableLiteAdmin } from "@/app/(dashboard)/hooks/useDisableLiteAdmin";
-import { useDisableShowPrompts } from "@/app/(dashboard)/hooks/useDisableShowPrompts";
-import {
-  emitLocalStorageChange,
-  getLocalStorageItem,
-  removeLocalStorageItem,
-  setLocalStorageItem,
-} from "@/utils/localStorageUtils";
 import { navAccountDisplayName } from "@/components/Navbar/navDisplayName";
 import { uiHref } from "@/utils/uiHref";
-import { isProxyAdminRole } from "@/utils/roles";
-import { ChevronDown, ChevronsUpDown, Crown, KeyRound, LogOut, Mail, ShieldCheck, User } from "lucide-react";
+import { ChevronDown, ChevronsUpDown, KeyRound, LogOut, Mail, ShieldCheck, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import CopyButton from "@/components/shared/CopyButton";
 import { cn } from "@/lib/cva.config";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 
 function hueFromString(seed: string): number {
   let h = 0;
@@ -67,52 +53,15 @@ interface UserDropdownProps {
 }
 
 const UserDropdown: React.FC<UserDropdownProps> = ({ onLogout, variant = "navbar", collapsed = false }) => {
-  const {
-    userId,
-    userEmail,
-    userRole: role,
-    userRoleLabel: userRole,
-    isViewOnly,
-    premiumUser,
-    loginMethod,
-  } = useAuthorized();
+  const { userId, userEmail, userRoleLabel: userRole, loginMethod } = useAuthorized();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const disableShowPrompts = useDisableShowPrompts();
-  const disableBlogPosts = useDisableBlogPosts();
-  const disableBouncingIcon = useDisableBouncingIcon();
-  const [disableLiteAdmin, setDisableLiteAdmin] = useDisableLiteAdmin(userId);
-  const canUseLiteAdmin = userId && !isViewOnly && isProxyAdminRole(role);
-  const [disableShowNewBadge, setDisableShowNewBadge] = useState(false);
-
-  useEffect(() => {
-    const storedValue = getLocalStorageItem("disableShowNewBadge");
-    setDisableShowNewBadge(storedValue === "true");
-  }, []);
 
   const renderUserInfoSection = () => (
     <div className="flex w-full flex-col gap-2 p-3 text-sm">
-      <div className="flex w-full items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Mail className="size-4" />
-          <span className="text-muted-foreground">{userEmail || "-"}</span>
-        </div>
-        {premiumUser ? (
-          <Badge>
-            <Crown className="size-3" />
-            Premium
-          </Badge>
-        ) : (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger render={<Badge variant="outline" />}>
-                <Crown className="size-3" />
-                Standard
-              </TooltipTrigger>
-              <TooltipContent side="left">Upgrade to Premium for advanced features</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
+      <div className="flex w-full items-center gap-2">
+        <Mail className="size-4" />
+        <span className="text-muted-foreground">{userEmail || "-"}</span>
       </div>
       <Separator className="my-2" />
       <div className="flex w-full items-center justify-between gap-2">
@@ -134,87 +83,6 @@ const UserDropdown: React.FC<UserDropdownProps> = ({ onLogout, variant = "navbar
         </div>
         <span>{userRole}</span>
       </div>
-      <Separator className="my-2" />
-      <div className="flex w-full items-center justify-between gap-2">
-        <span className="text-muted-foreground">Hide New Feature Indicators</span>
-        <Switch
-          size="sm"
-          checked={disableShowNewBadge}
-          onCheckedChange={(checked) => {
-            setDisableShowNewBadge(checked);
-            if (checked) {
-              setLocalStorageItem("disableShowNewBadge", "true");
-              emitLocalStorageChange("disableShowNewBadge");
-            } else {
-              removeLocalStorageItem("disableShowNewBadge");
-              emitLocalStorageChange("disableShowNewBadge");
-            }
-          }}
-          aria-label="Toggle hide new feature indicators"
-        />
-      </div>
-      <div className="flex w-full items-center justify-between gap-2">
-        <span className="text-muted-foreground">Hide All Prompts</span>
-        <Switch
-          size="sm"
-          checked={disableShowPrompts}
-          onCheckedChange={(checked) => {
-            if (checked) {
-              setLocalStorageItem("disableShowPrompts", "true");
-              emitLocalStorageChange("disableShowPrompts");
-            } else {
-              removeLocalStorageItem("disableShowPrompts");
-              emitLocalStorageChange("disableShowPrompts");
-            }
-          }}
-          aria-label="Toggle hide all prompts"
-        />
-      </div>
-      <div className="flex w-full items-center justify-between gap-2">
-        <span className="text-muted-foreground">Hide Blog Posts</span>
-        <Switch
-          size="sm"
-          checked={disableBlogPosts}
-          onCheckedChange={(checked) => {
-            if (checked) {
-              setLocalStorageItem("disableBlogPosts", "true");
-              emitLocalStorageChange("disableBlogPosts");
-            } else {
-              removeLocalStorageItem("disableBlogPosts");
-              emitLocalStorageChange("disableBlogPosts");
-            }
-          }}
-          aria-label="Toggle hide blog posts"
-        />
-      </div>
-      <div className="flex w-full items-center justify-between gap-2">
-        <span className="text-muted-foreground">Hide Bouncing Icon</span>
-        <Switch
-          size="sm"
-          checked={disableBouncingIcon}
-          onCheckedChange={(checked) => {
-            if (checked) {
-              setLocalStorageItem("disableBouncingIcon", "true");
-              emitLocalStorageChange("disableBouncingIcon");
-            } else {
-              removeLocalStorageItem("disableBouncingIcon");
-              emitLocalStorageChange("disableBouncingIcon");
-            }
-          }}
-          aria-label="Toggle hide bouncing icon"
-        />
-      </div>
-      {canUseLiteAdmin && (
-        <div className="flex w-full items-center justify-between gap-2">
-          <span className="text-muted-foreground">Hide LiteAdmin</span>
-          <Switch
-            size="sm"
-            checked={disableLiteAdmin}
-            onCheckedChange={setDisableLiteAdmin}
-            aria-label="Toggle hide LiteAdmin"
-          />
-        </div>
-      )}
     </div>
   );
 

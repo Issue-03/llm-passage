@@ -26,42 +26,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockRouterPush }),
 }));
 
-let mockUseDisableShowPromptsImpl = () => false;
-let mockUseDisableBouncingIconImpl = () => false;
-let mockHealthDataImpl = (): { litellm_version?: string } | undefined => ({ litellm_version: "1.99.0" });
-
-let mockGetLocalStorageItemImpl = (key: string): string | null => {
-  if (key === "disableShowNewBadge") return null;
-  if (key === "disableShowPrompts") return null;
-  return null;
-};
-
 vi.mock("@/app/(dashboard)/hooks/useAuthorized", () => ({
   default: () => mockUseAuthorizedImpl(),
-}));
-
-vi.mock("@/app/(dashboard)/hooks/useDisableShowPrompts", () => ({
-  useDisableShowPrompts: () => mockUseDisableShowPromptsImpl(),
-}));
-
-vi.mock("@/app/(dashboard)/hooks/useDisableBlogPosts", () => ({
-  useDisableBlogPosts: () => false,
-}));
-
-vi.mock("@/app/(dashboard)/hooks/useDisableBouncingIcon", () => ({
-  useDisableBouncingIcon: () => mockUseDisableBouncingIconImpl(),
-}));
-
-vi.mock("@/app/(dashboard)/hooks/healthReadiness/useHealthReadinessDetails", () => ({
-  useHealthReadinessDetails: () => ({ data: mockHealthDataImpl() }),
-}));
-
-vi.mock("@/utils/localStorageUtils", () => ({
-  LOCAL_STORAGE_EVENT: "local-storage-change",
-  getLocalStorageItem: (key: string) => mockGetLocalStorageItemImpl(key),
-  setLocalStorageItem: vi.fn(),
-  removeLocalStorageItem: vi.fn(),
-  emitLocalStorageChange: vi.fn(),
 }));
 
 describe("SidebarAccountMenu", () => {
@@ -85,14 +51,6 @@ describe("SidebarAccountMenu", () => {
       premiumUser: false,
       accessToken: "test-token",
     });
-    mockUseDisableShowPromptsImpl = () => false;
-    mockUseDisableBouncingIconImpl = () => false;
-    mockHealthDataImpl = () => ({ litellm_version: "1.99.0" });
-    mockGetLocalStorageItemImpl = (key: string): string | null => {
-      if (key === "disableShowNewBadge") return null;
-      if (key === "disableShowPrompts") return null;
-      return null;
-    };
   });
 
   it("should render the account trigger with initials", () => {
@@ -120,66 +78,16 @@ describe("SidebarAccountMenu", () => {
     expect(screen.getAllByText("Admin").length).toBeGreaterThan(0);
   });
 
-  it("should display Standard tier for non-premium users", async () => {
+  it("shows no tier, version, decoration or preference switches", async () => {
     const user = userEvent.setup();
     renderWithProviders(<SidebarAccountMenu onLogout={mockOnLogout} />);
 
     await openMenu(user);
 
-    expect(screen.getByText("Standard")).toBeInTheDocument();
-  });
-
-  it("should display Premium tier for premium users", async () => {
-    const user = userEvent.setup();
-    mockUseAuthorizedImpl = () => ({
-      userId: "test-user-id",
-      userEmail: "test@example.com",
-      userRoleLabel: "Admin",
-      premiumUser: true,
-      accessToken: "test-token",
-    });
-
-    renderWithProviders(<SidebarAccountMenu onLogout={mockOnLogout} />);
-
-    await openMenu(user);
-
-    expect(screen.getByText("Premium")).toBeInTheDocument();
-  });
-
-  it("should render a clickable version badge linking to the release notes", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<SidebarAccountMenu onLogout={mockOnLogout} />);
-
-    await openMenu(user);
-
-    const versionLink = screen.getByRole("link", { name: /v1\.99\.0/ });
-    expect(versionLink).toHaveAttribute("href", "https://docs.litellm.ai/release_notes");
-    expect(versionLink).toHaveAttribute("target", "_blank");
-  });
-
-  it("should not render the version badge when the version is unavailable", async () => {
-    const user = userEvent.setup();
-    mockHealthDataImpl = () => undefined;
-    renderWithProviders(<SidebarAccountMenu onLogout={mockOnLogout} />);
-
-    await openMenu(user);
-
-    expect(screen.queryByRole("link", { name: /^v/ })).not.toBeInTheDocument();
-  });
-
-  it("should show the bouncing icon by default", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<SidebarAccountMenu onLogout={mockOnLogout} />);
-    await openMenu(user);
-    expect(screen.getByTitle("Thanks for using EmbRouter!")).toBeInTheDocument();
-  });
-
-  it("should hide the bouncing icon when Hide Bouncing Icon is enabled", async () => {
-    const user = userEvent.setup();
-    mockUseDisableBouncingIconImpl = () => true;
-    renderWithProviders(<SidebarAccountMenu onLogout={mockOnLogout} />);
-    await openMenu(user);
-    expect(screen.queryByTitle("Thanks for using EmbRouter!")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tier")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^v\d/)).not.toBeInTheDocument();
+    expect(screen.queryByText("🌴")).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
 
   it("wires the email row to the shared copy button", async () => {
@@ -242,74 +150,6 @@ describe("SidebarAccountMenu", () => {
     await openMenu(user);
 
     expect(screen.queryByRole("button", { name: /change password/i })).not.toBeInTheDocument();
-  });
-
-  it("should toggle hide new feature indicators on", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<SidebarAccountMenu onLogout={mockOnLogout} />);
-
-    await openMenu(user);
-
-    const toggle = screen.getByLabelText("Toggle hide new feature indicators");
-    expect(toggle).not.toBeChecked();
-
-    await user.click(toggle);
-
-    const localStorageUtils = vi.mocked(await import("@/utils/localStorageUtils"));
-    expect(localStorageUtils.setLocalStorageItem).toHaveBeenCalledWith("disableShowNewBadge", "true");
-    expect(localStorageUtils.emitLocalStorageChange).toHaveBeenCalledWith("disableShowNewBadge");
-  });
-
-  it("should toggle hide new feature indicators off", async () => {
-    const user = userEvent.setup();
-    mockGetLocalStorageItemImpl = (key: string): string | null => {
-      if (key === "disableShowNewBadge") return "true";
-      return null;
-    };
-
-    renderWithProviders(<SidebarAccountMenu onLogout={mockOnLogout} />);
-
-    await openMenu(user);
-
-    const toggle = screen.getByLabelText("Toggle hide new feature indicators");
-    expect(toggle).toBeChecked();
-
-    await user.click(toggle);
-
-    const localStorageUtils = vi.mocked(await import("@/utils/localStorageUtils"));
-    expect(localStorageUtils.removeLocalStorageItem).toHaveBeenCalledWith("disableShowNewBadge");
-    expect(localStorageUtils.emitLocalStorageChange).toHaveBeenCalledWith("disableShowNewBadge");
-  });
-
-  it("should toggle hide all prompts on", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<SidebarAccountMenu onLogout={mockOnLogout} />);
-
-    await openMenu(user);
-
-    const toggle = screen.getByLabelText("Toggle hide all prompts");
-    expect(toggle).not.toBeChecked();
-
-    await user.click(toggle);
-
-    const localStorageUtils = vi.mocked(await import("@/utils/localStorageUtils"));
-    expect(localStorageUtils.setLocalStorageItem).toHaveBeenCalledWith("disableShowPrompts", "true");
-    expect(localStorageUtils.emitLocalStorageChange).toHaveBeenCalledWith("disableShowPrompts");
-  });
-
-  it("should initialize hide new feature indicators from localStorage", async () => {
-    const user = userEvent.setup();
-    mockGetLocalStorageItemImpl = (key: string): string | null => {
-      if (key === "disableShowNewBadge") return "true";
-      return null;
-    };
-
-    renderWithProviders(<SidebarAccountMenu onLogout={mockOnLogout} />);
-
-    await openMenu(user);
-
-    const toggle = screen.getByLabelText("Toggle hide new feature indicators");
-    expect(toggle).toBeChecked();
   });
 
   it("should show Account in the trigger for the default placeholder user id", () => {

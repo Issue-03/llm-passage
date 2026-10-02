@@ -22,28 +22,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockRouterPush }),
 }));
 
-let mockUseDisableShowPromptsImpl = () => false;
-
-let mockGetLocalStorageItemImpl = (key: string): string | null => {
-  if (key === "disableShowNewBadge") return null;
-  if (key === "disableShowPrompts") return null;
-  return null;
-};
-
 vi.mock("@/app/(dashboard)/hooks/useAuthorized", () => ({
   default: () => mockUseAuthorizedImpl(),
-}));
-
-vi.mock("@/app/(dashboard)/hooks/useDisableShowPrompts", () => ({
-  useDisableShowPrompts: () => mockUseDisableShowPromptsImpl(),
-}));
-
-vi.mock("@/utils/localStorageUtils", () => ({
-  LOCAL_STORAGE_EVENT: "local-storage-change",
-  getLocalStorageItem: (key: string) => mockGetLocalStorageItemImpl(key),
-  setLocalStorageItem: vi.fn(),
-  removeLocalStorageItem: vi.fn(),
-  emitLocalStorageChange: vi.fn(),
 }));
 
 describe("UserDropdown", () => {
@@ -59,12 +39,6 @@ describe("UserDropdown", () => {
       userRoleLabel: "Admin",
       premiumUser: false,
     });
-    mockUseDisableShowPromptsImpl = () => false;
-    mockGetLocalStorageItemImpl = (key: string): string | null => {
-      if (key === "disableShowNewBadge") return null;
-      if (key === "disableShowPrompts") return null;
-      return null;
-    };
   });
 
   it("should render", () => {
@@ -111,33 +85,16 @@ describe("UserDropdown", () => {
     });
   });
 
-  it("should display Standard badge for non-premium users", async () => {
+  it("shows no tier badge or preference switches", async () => {
     const user = userEvent.setup();
     renderWithProviders(<UserDropdown onLogout={mockOnLogout} />);
 
     await user.click(getAccountTrigger());
 
-    await waitFor(() => {
-      expect(screen.getByText("Standard")).toBeInTheDocument();
-    });
-  });
-
-  it("should display Premium badge for premium users", async () => {
-    const user = userEvent.setup();
-    mockUseAuthorizedImpl = () => ({
-      userId: "test-user-id",
-      userEmail: "test@example.com",
-      userRoleLabel: "Admin",
-      premiumUser: true,
-    });
-
-    renderWithProviders(<UserDropdown onLogout={mockOnLogout} />);
-
-    await user.click(getAccountTrigger());
-
-    await waitFor(() => {
-      expect(screen.getByText("Premium")).toBeInTheDocument();
-    });
+    expect(await screen.findByTestId("user-dropdown-panel")).toBeInTheDocument();
+    expect(screen.queryByText("Standard")).not.toBeInTheDocument();
+    expect(screen.queryByText("Premium")).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
 
   it("should call onLogout when logout is clicked", async () => {
@@ -193,97 +150,6 @@ describe("UserDropdown", () => {
     expect(screen.queryByText("Change Password")).not.toBeInTheDocument();
   });
 
-  it("should toggle hide new feature indicators switch", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<UserDropdown onLogout={mockOnLogout} />);
-
-    await user.click(getAccountTrigger());
-
-    await waitFor(() => {
-      expect(screen.getAllByText("test@example.com").length).toBeGreaterThan(0);
-    });
-
-    const toggle = screen.getByLabelText("Toggle hide new feature indicators");
-    expect(toggle).not.toBeChecked();
-
-    await user.click(toggle);
-
-    const localStorageUtils = vi.mocked(await import("@/utils/localStorageUtils"));
-    expect(localStorageUtils.setLocalStorageItem).toHaveBeenCalledWith("disableShowNewBadge", "true");
-    expect(localStorageUtils.emitLocalStorageChange).toHaveBeenCalledWith("disableShowNewBadge");
-  });
-
-  it("should toggle hide new feature indicators switch off", async () => {
-    const user = userEvent.setup();
-    mockGetLocalStorageItemImpl = (key: string): string | null => {
-      if (key === "disableShowNewBadge") return "true";
-      return null;
-    };
-
-    renderWithProviders(<UserDropdown onLogout={mockOnLogout} />);
-
-    await user.click(getAccountTrigger());
-
-    await waitFor(() => {
-      expect(screen.getAllByText("test@example.com").length).toBeGreaterThan(0);
-    });
-
-    const toggle = screen.getByLabelText("Toggle hide new feature indicators");
-    expect(toggle).toBeChecked();
-
-    await user.click(toggle);
-
-    const localStorageUtils = vi.mocked(await import("@/utils/localStorageUtils"));
-    expect(localStorageUtils.removeLocalStorageItem).toHaveBeenCalledWith("disableShowNewBadge");
-    expect(localStorageUtils.emitLocalStorageChange).toHaveBeenCalledWith("disableShowNewBadge");
-  });
-
-  it("should toggle hide all prompts switch", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<UserDropdown onLogout={mockOnLogout} />);
-
-    await user.click(getAccountTrigger());
-
-    await waitFor(() => {
-      expect(screen.getAllByText("test@example.com").length).toBeGreaterThan(0);
-    });
-
-    const toggle = screen.getByLabelText("Toggle hide all prompts");
-    expect(toggle).not.toBeChecked();
-
-    await user.click(toggle);
-
-    const localStorageUtils = vi.mocked(await import("@/utils/localStorageUtils"));
-    expect(localStorageUtils.setLocalStorageItem).toHaveBeenCalledWith("disableShowPrompts", "true");
-    expect(localStorageUtils.emitLocalStorageChange).toHaveBeenCalledWith("disableShowPrompts");
-  });
-
-  it("should toggle hide all prompts switch off", async () => {
-    const user = userEvent.setup();
-    mockUseDisableShowPromptsImpl = () => true;
-    mockGetLocalStorageItemImpl = (key: string): string | null => {
-      if (key === "disableShowPrompts") return "true";
-      return null;
-    };
-
-    renderWithProviders(<UserDropdown onLogout={mockOnLogout} />);
-
-    await user.click(getAccountTrigger());
-
-    await waitFor(() => {
-      expect(screen.getAllByText("test@example.com").length).toBeGreaterThan(0);
-    });
-
-    const toggle = screen.getByLabelText("Toggle hide all prompts");
-    expect(toggle).toBeChecked();
-
-    await user.click(toggle);
-
-    const localStorageUtils = vi.mocked(await import("@/utils/localStorageUtils"));
-    expect(localStorageUtils.removeLocalStorageItem).toHaveBeenCalledWith("disableShowPrompts");
-    expect(localStorageUtils.emitLocalStorageChange).toHaveBeenCalledWith("disableShowPrompts");
-  });
-
   it("should show Account in the trigger when user id is the default placeholder", () => {
     mockUseAuthorizedImpl = () => ({
       userId: "default_user_id",
@@ -332,22 +198,4 @@ describe("UserDropdown", () => {
     });
   });
 
-  it("should initialize hide new feature indicators from localStorage", async () => {
-    const user = userEvent.setup();
-    mockGetLocalStorageItemImpl = (key: string): string | null => {
-      if (key === "disableShowNewBadge") return "true";
-      return null;
-    };
-
-    renderWithProviders(<UserDropdown onLogout={mockOnLogout} />);
-
-    await user.click(getAccountTrigger());
-
-    await waitFor(() => {
-      expect(screen.getAllByText("test@example.com").length).toBeGreaterThan(0);
-    });
-
-    const toggle = screen.getByLabelText("Toggle hide new feature indicators");
-    expect(toggle).toBeChecked();
-  });
 });

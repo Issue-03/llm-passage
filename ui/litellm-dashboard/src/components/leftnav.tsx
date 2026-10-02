@@ -1,11 +1,9 @@
 import { useTeams } from "@/app/(dashboard)/hooks/teams/useTeams";
 import useAuthorized from "@/app/(dashboard)/hooks/useAuthorized";
 import useIsOrgAdmin from "@/app/(dashboard)/hooks/useIsOrgAdmin";
-import { useHealthReadinessDetails } from "@/app/(dashboard)/hooks/healthReadiness/useHealthReadinessDetails";
 import { useLogout } from "@/app/(dashboard)/hooks/useLogout";
 import { getProxyBaseUrl } from "@/components/networking";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -27,7 +25,6 @@ import {
   Bell,
   Blocks,
   Bot,
-  BookOpen,
   Building2,
   Boxes,
   ChevronRight,
@@ -74,7 +71,6 @@ import {
   rolesAllowedToViewWriteScopedPages,
   rolesWithWriteAccess,
 } from "../utils/roles";
-import BetaBadge from "./BetaBadge";
 import SidebarAccountMenu from "./SidebarAccountMenu/SidebarAccountMenu";
 import SidebarUsageCard from "./SidebarUsageCard";
 import { routeSegmentForPathname, uiHref } from "@/utils/uiHref";
@@ -209,22 +205,14 @@ const menuGroups: MenuGroup[] = [
         page: "model-insights",
         icon: <BarChart3 {...ICON} />,
         roles: all_admin_roles,
-        label: (
-          <span className="flex items-center gap-2">
-            Model Leaderboard <BetaBadge />
-          </span>
-        ),
+        label: "Model Leaderboard",
       },
       {
         key: "cost-optimization",
         page: "cost-optimization",
         icon: <PiggyBank {...ICON} />,
         roles: [...all_admin_roles, ...internalUserRoles],
-        label: (
-          <span className="flex items-center gap-2">
-            Cost Optimization <BetaBadge />
-          </span>
-        ),
+        label: "Cost Optimization",
       },
       { key: "logs", page: "logs", label: "Logs", icon: <Activity {...ICON} /> },
       {
@@ -243,11 +231,7 @@ const menuGroups: MenuGroup[] = [
       {
         key: "projects",
         page: "projects",
-        label: (
-          <span className="flex items-center gap-2">
-            Projects <BetaBadge />
-          </span>
-        ),
+        label: "Projects",
         icon: <Folder {...ICON} />,
         roles: all_admin_roles,
       },
@@ -274,13 +258,6 @@ const menuGroups: MenuGroup[] = [
     items: [
       { key: "api_ref", page: "api_ref", route: "api-reference", label: "API Reference", icon: <Code2 {...ICON} /> },
       { key: "model-hub-table", page: "model-hub-table", label: "AI Hub", icon: <LayoutGrid {...ICON} /> },
-      {
-        key: "learning-resources",
-        page: "learning-resources",
-        label: "Learning Resources",
-        icon: <BookOpen {...ICON} />,
-        external_url: "https://models.litellm.ai/cookbook",
-      },
       {
         key: "caching",
         page: "caching",
@@ -444,11 +421,9 @@ const Sidebar_: React.FC<SidebarProps> = ({
   const { data: teams } = useTeams();
   const { logoUrl, logoUrlDark } = useTheme();
   const [erroredDarkLogo, setErroredDarkLogo] = useState<string | null>(null);
-  const { data: healthData } = useHealthReadinessDetails(accessToken);
   const logout = useLogout(accessToken);
 
   const baseUrl = getProxyBaseUrl();
-  const version = healthData?.litellm_version;
   const currentRoute = routeForPathname(usePathname());
   const selectedKey = findMenuItemKey(currentRoute);
 
@@ -624,15 +599,6 @@ const Sidebar_: React.FC<SidebarProps> = ({
                 className={cn(LOGO_CLASS_NAME, "hidden dark:block")}
               />
             </Link>
-            {version && (
-              <Badge
-                variant="outline"
-                render={<a href="https://docs.litellm.ai/release_notes" target="_blank" rel="noopener noreferrer" />}
-                className="px-1.5 py-0 font-mono text-[10px] font-medium text-muted-foreground group-data-[collapsed=true]/sidebar:hidden"
-              >
-                v{version}
-              </Badge>
-            )}
           </div>
           {onToggleCollapsed && (
             <Button

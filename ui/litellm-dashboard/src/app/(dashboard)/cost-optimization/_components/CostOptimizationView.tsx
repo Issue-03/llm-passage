@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Info, PiggyBank } from "lucide-react";
+import { PiggyBank } from "lucide-react";
 
 import useCan from "@/app/(dashboard)/hooks/useCan";
 import PaginationStatusAlerts from "@/components/shared/PaginationStatusAlerts";
@@ -64,25 +64,6 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({ accessToken
             </TabsList>
           )}
         />
-
-        <div
-          role="alert"
-          className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border border-border bg-muted/50 px-4 py-4"
-        >
-          <Info className="mt-0.5 size-5 text-primary" aria-hidden="true" />
-          <p className="font-medium text-foreground">This is an experimental dashboard</p>
-          <p className="col-start-2 text-sm text-muted-foreground">
-            Have feedback? Join the discussion{" "}
-            <a
-              href="https://github.com/BerriAI/litellm/discussions/32168"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary underline underline-offset-2"
-            >
-              here
-            </a>
-          </p>
-        </div>
 
         <PaginationStatusAlerts
           isFetchingMore={activity.isFetchingMore}

@@ -14,7 +14,7 @@ export enum VectorStoreProviders {
   OpenAI = "OpenAI",
   Azure = "Azure OpenAI",
   Milvus = "Milvus",
-  MongoDB = "MongoDB (BETA)",
+  MongoDB = "MongoDB",
   Valkey = "Valkey",
 }
 

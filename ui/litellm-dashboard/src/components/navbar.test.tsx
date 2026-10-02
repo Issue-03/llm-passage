@@ -14,14 +14,6 @@ vi.mock("@/components/networking", () => ({
   serverRootPath: "",
 }));
 
-vi.mock("@/app/(dashboard)/hooks/useDisableBouncingIcon", () => ({
-  useDisableBouncingIcon: () => false,
-}));
-
-vi.mock("./Navbar/BlogDropdown/BlogDropdown", () => ({
-  BlogDropdown: () => <div data-testid="blog-dropdown">Blog</div>,
-}));
-
 const mockUserDropdownData = vi.hoisted(() => ({
   current: () => ({
     userId: "test-user",
@@ -34,7 +26,6 @@ const mockUserDropdownData = vi.hoisted(() => ({
 vi.mock("./Navbar/UserDropdown/UserDropdown", async (importOriginal) => {
   const React = await import("react");
   const { useState } = React;
-  const localStorageUtils = await import("@/utils/localStorageUtils");
   return {
     default: function MockUserDropdown({ onLogout }: { onLogout: () => void }) {
       const { userId, userEmail, userRole, premiumUser } = mockUserDropdownData.current();
@@ -53,19 +44,6 @@ vi.mock("./Navbar/UserDropdown/UserDropdown", async (importOriginal) => {
               <button type="button" onClick={() => onLogout()}>
                 Logout
               </button>
-              <label>
-                <input
-                  type="checkbox"
-                  aria-label="Toggle hide new feature indicators"
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      localStorageUtils.setLocalStorageItem("disableShowNewBadge", "true");
-                      localStorageUtils.emitLocalStorageChange("disableShowNewBadge");
-                    }
-                  }}
-                />
-                Toggle hide new feature indicators
-              </label>
             </div>
           )}
         </div>
@@ -74,23 +52,8 @@ vi.mock("./Navbar/UserDropdown/UserDropdown", async (importOriginal) => {
   };
 });
 
-// Mock CommunityEngagementButtons component
-vi.mock("./Navbar/CommunityEngagementButtons/CommunityEngagementButtons", () => ({
-  CommunityEngagementButtons: () => (
-    <div data-testid="community-engagement-buttons">
-      <a href="https://www.litellm.ai/support" target="_blank" rel="noopener noreferrer">
-        Join Slack
-      </a>
-      <a href="https://github.com/BerriAI/litellm" target="_blank" rel="noopener noreferrer">
-        Star us on GitHub
-      </a>
-    </div>
-  ),
-}));
-
 // Create mock functions that can be controlled in tests
 let mockUseThemeImpl = () => ({ logoUrl: null as string | null });
-let mockUseHealthReadinessDetailsImpl = () => ({ data: null as any });
 let mockGetLocalStorageItemImpl = (key: string) => null as string | null;
 const mockUseAuthorizedImpl = () => ({
   userId: "test-user",
@@ -99,18 +62,10 @@ const mockUseAuthorizedImpl = () => ({
   premiumUser: false,
 });
 
-const useHealthReadinessDetailsSpy = vi.hoisted(() => vi.fn());
-
 vi.mock("@/contexts/ThemeContext", () => ({
   useTheme: () => mockUseThemeImpl(),
 }));
 
-vi.mock("@/app/(dashboard)/hooks/healthReadiness/useHealthReadinessDetails", () => ({
-  useHealthReadinessDetails: (accessToken: string | null | undefined) => {
-    useHealthReadinessDetailsSpy(accessToken);
-    return mockUseHealthReadinessDetailsImpl();
-  },
-}));
 
 vi.mock("@/app/(dashboard)/hooks/useAuthorized", () => ({
   default: () => mockUseAuthorizedImpl(),
@@ -143,9 +98,17 @@ describe("Navbar", () => {
   it("should render without crashing", () => {
     renderWithProviders(<Navbar {...defaultProps} />);
 
-    expect(screen.getByRole("button", { name: /^notifications$/i })).toBeInTheDocument();
-    expect(screen.getByText("Docs")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /open account menu/i })).toBeInTheDocument();
+  });
+
+  it("leaves the version badge, docs, blog, community links and notifications out of the navbar", () => {
+    renderWithProviders(<Navbar {...defaultProps} />);
+
+    expect(screen.queryByText(/^v\d/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Docs" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /blog/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Community links" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^notifications$/i })).not.toBeInTheDocument();
   });
 
   it("should link the logo to the UI home route rather than the proxy origin", () => {
@@ -222,33 +185,6 @@ describe("Navbar", () => {
     mockUserDropdownData.current = originalCurrent;
   });
 
-  it("should show version badge when health data contains version", () => {
-    mockUseHealthReadinessDetailsImpl = () => ({ data: { litellm_version: "1.0.0" } });
-
-    renderWithProviders(<Navbar {...defaultProps} />);
-
-    expect(screen.getByText("v1.0.0")).toBeInTheDocument();
-
-    // Reset mock
-    mockUseHealthReadinessDetailsImpl = () => ({ data: null });
-  });
-
-  it("should forward accessToken to the readiness hook", () => {
-    useHealthReadinessDetailsSpy.mockClear();
-
-    renderWithProviders(<Navbar {...defaultProps} accessToken="my-token" />);
-
-    expect(useHealthReadinessDetailsSpy).toHaveBeenCalledWith("my-token");
-  });
-
-  it("should forward a null accessToken to the readiness hook (disables the hook)", () => {
-    useHealthReadinessDetailsSpy.mockClear();
-
-    renderWithProviders(<Navbar {...defaultProps} accessToken={null} />);
-
-    expect(useHealthReadinessDetailsSpy).toHaveBeenCalledWith(null);
-  });
-
   it("should use custom logo from theme context", () => {
     mockUseThemeImpl = () => ({ logoUrl: "https://example.com/custom-logo.png" });
 
@@ -267,37 +203,6 @@ describe("Navbar", () => {
 
     expect(screen.queryByRole("button", { name: /open account menu/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^notifications$/i })).not.toBeInTheDocument();
-  });
-
-  it("should handle hide new feature indicators toggle", async () => {
-    const user = userEvent.setup();
-
-    // Initially disabled
-    mockGetLocalStorageItemImpl = (key: string) => {
-      if (key === "disableShowNewBadge") return "false";
-      return null;
-    };
-
-    renderWithProviders(<Navbar {...defaultProps} />);
-
-    await user.click(screen.getByRole("button", { name: /open account menu/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText("test-user")).toBeInTheDocument();
-    });
-
-    // Find and click the toggle switch
-    const toggleSwitch = screen.getByLabelText("Toggle hide new feature indicators");
-    await user.click(toggleSwitch);
-
-    // The functions are mocked globally, so we can check if they were called
-    // by accessing them through the mock registry
-    const localStorageUtils = vi.mocked(await import("@/utils/localStorageUtils"));
-    expect(localStorageUtils.setLocalStorageItem).toHaveBeenCalledWith("disableShowNewBadge", "true");
-    expect(localStorageUtils.emitLocalStorageChange).toHaveBeenCalledWith("disableShowNewBadge");
-
-    // Reset mock
-    mockGetLocalStorageItemImpl = (key: string) => null;
   });
 
   it("should handle logout functionality", async () => {

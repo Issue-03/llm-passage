@@ -13,7 +13,6 @@ import { NoRedisWarningBanner } from "@/components/NoRedisWarningBanner";
 import { EnvCredentialLoginWarningBanner } from "@/components/EnvCredentialLoginWarningBanner";
 import { LicenseExpiryBanner } from "@/components/LicenseExpiryBanner";
 import { UserBanner } from "@/components/UserBanner";
-import LiteAdmin from "@/components/liteadmin/LiteAdmin";
 import { UpgradeBanner } from "@/components/UpgradeBanner";
 import { routeSegmentForPathname, uiHref } from "@/utils/uiHref";
 import { PluginModeProvider, usePluginMode } from "@/contexts/PluginModeContext";
@@ -105,7 +104,6 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const { accessToken } = useAuth();
   const { mode } = usePluginMode();
   const routeSegment = routeSegmentForPathname(usePathname());
-  const isPlayground = routeSegment === "playground";
   const isFullBleed = FULL_BLEED_SEGMENTS.has(routeSegment);
   // A manual toggle holds only for the route it was made on; full-bleed routes default to collapsed.
   const [sidebarOverride, setSidebarOverride] = useState<{ segment: string; collapsed: boolean } | null>(null);
@@ -150,7 +148,6 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         <UserBanner accessToken={accessToken} />
         <UpgradeBanner accessToken={accessToken} />
         <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
-        {!isPlayground && <LiteAdmin />}
       </div>
     </div>
   );

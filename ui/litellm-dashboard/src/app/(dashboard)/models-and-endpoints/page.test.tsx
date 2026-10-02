@@ -190,8 +190,6 @@ describe("ModelsAndEndpointsPage", () => {
       expect(tabs[0]).toContain("Deployed Models");
       expect(tabs[1]).toBe("Add Model");
       expect(tabs[2]).toContain("Auto-Routers");
-      // Badged Beta while the tab settles; BetaBadge renders the label text.
-      expect(tabs[2]).toContain("Beta");
     });
 
     it("renders its panel when selected", async () => {

@@ -45,7 +45,7 @@ describe("ThemeToggle", () => {
 
   it("names the mode the click will switch to, so the button says what it does", async () => {
     renderToggle();
-    expect(screen.getByRole("button", { name: "Switch to dark mode (beta)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Switch to dark mode" })).toBeInTheDocument();
 
     await userEvent.click(toggle());
 

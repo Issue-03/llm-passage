@@ -500,11 +500,6 @@ const MCPAppsPanel: React.FC<Props> = ({ accessToken, selectedServers, onChange,
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h2 className="m-0 text-lg font-semibold text-foreground">MCP Servers</h2>
-            {!connectMode && (
-              <span className="text-[10px] font-semibold text-primary bg-primary/10 rounded px-1.5 py-0.5 uppercase tracking-wider">
-                Beta
-              </span>
-            )}
           </div>
           {connectMode ? (
             <p className="m-0 text-[13px] text-muted-foreground">Click a server to see its tools and connect</p>
