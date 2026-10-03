@@ -223,11 +223,11 @@ After each batch: tests for the touched files (`LANG=en_US.UTF-8`), lint, build,
   - **Developer Tools** (API Reference, AI Hub, Response Cache, Experimental)
   - **Settings** (Router Settings, Logging & Alerts, Admin Settings, Cost Tracking, UI Theme)
 - `HIDDEN_ITEMS`:
-  - Platform (was AI Gateway): Agentic, MCP Servers, Skills, Policies, Tools
+  - Platform (was AI Gateway): Agentic, MCP Servers, Skills, Policies, Tools, Guardrails (hidden 2026-10-04, after `8563f42`)
   - Teams & Users (was Access Control): Projects, Organizations, Access Groups, Budgets
 
 **What's still in the sidebar:**
-- Platform: Virtual Keys, Playground, Models + Endpoints, Guardrails
+- Platform: Virtual Keys, Playground, Models + Endpoints
 - Teams & Users: Teams, Internal Users
 
 `Sidebar` accepts `hiddenGroups` / `hiddenItems` props. The sidebar tests pass empty sets so the role and permission rules are still tested against the full menu, and a separate test checks the default hiding.

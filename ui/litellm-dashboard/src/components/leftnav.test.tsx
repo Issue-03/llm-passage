@@ -121,7 +121,7 @@ describe("Sidebar (leftnav)", () => {
   it("hides the trimmed sections and pages by default", () => {
     renderWithProviders(<Sidebar collapsed={false} />);
 
-    for (const label of ["Virtual Keys", "Playground", "Models + Endpoints", "Guardrails", "Teams", "Internal Users"]) {
+    for (const label of ["Virtual Keys", "Playground", "Models + Endpoints", "Teams", "Internal Users"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
     for (const label of [
@@ -130,6 +130,7 @@ describe("Sidebar (leftnav)", () => {
       "Skills",
       "Policies",
       "Tools",
+      "Guardrails",
       "Usage",
       "Logs",
       "Cost Optimization",

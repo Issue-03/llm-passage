@@ -120,6 +120,7 @@ const HIDDEN_ITEMS: ReadonlySet<string> = new Set([
   "skills",
   "policies",
   "tools",
+  "guardrails",
   "projects",
   "organizations",
   "access-groups",
