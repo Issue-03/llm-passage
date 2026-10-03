@@ -17,9 +17,9 @@ describe("sidebarMenuButtonVariants", () => {
   it("applies the isActive variant on top of the base classes", () => {
     const active = sidebarMenuButtonVariants({ isActive: true }).split(" ");
 
-    expect(active).toContain("bg-sidebar-accent");
+    expect(active).toContain("bg-sidebar-primary/10");
     expect(active).toContain("rounded-md");
-    expect(sidebarMenuButtonVariants({ isActive: false }).split(" ")).not.toContain("bg-sidebar-accent");
+    expect(sidebarMenuButtonVariants({ isActive: false }).split(" ")).not.toContain("bg-sidebar-primary/10");
   });
 });
 
@@ -28,7 +28,7 @@ describe("SidebarMenuButton", () => {
     render(<SidebarMenuButton isActive>Keys</SidebarMenuButton>);
     const button = screen.getByRole("button", { name: "Keys" });
 
-    expect(button).toHaveClass("bg-sidebar-accent", "rounded-md");
+    expect(button).toHaveClass("bg-sidebar-primary/10", "rounded-md");
     for (const key of CVA_CONFIG_KEYS) {
       expect(button).not.toHaveClass(key);
     }

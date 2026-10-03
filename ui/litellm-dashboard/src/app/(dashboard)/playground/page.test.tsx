@@ -82,6 +82,14 @@ describe("PlaygroundPage ?tab= deep link", () => {
     expect(screen.getByRole("tab", { name: "Chat" })).toHaveAttribute("aria-selected", "false");
   });
 
+  it("hides the Agent Builder tab and ignores ?tab=agent-builder", () => {
+    renderWithProviders(<PlaygroundPage />, { searchParams: { tab: "agent-builder" } });
+
+    expect(screen.queryByRole("tab", { name: /agent builder/i })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("agent-builder")).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Chat" })).toHaveAttribute("aria-selected", "true");
+  });
+
   it("falls back to Chat when ?tab= is not a playground tab", () => {
     renderWithProviders(<PlaygroundPage />, { searchParams: { tab: "settings" } });
 

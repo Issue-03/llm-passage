@@ -12,6 +12,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUrlTab } from "@/hooks/useUrlTab";
 
 const PLAYGROUND_TABS = ["chat", "compare", "compliance", "agent-builder"] as const;
+type PlaygroundTab = (typeof PLAYGROUND_TABS)[number];
+
+// Tabs hidden from the EmbRouter UI. Remove an entry to bring the tab back.
+const HIDDEN_PLAYGROUND_TABS: ReadonlySet<PlaygroundTab> = new Set<PlaygroundTab>(["agent-builder"]);
+const VISIBLE_PLAYGROUND_TABS = PLAYGROUND_TABS.filter((tab) => !HIDDEN_PLAYGROUND_TABS.has(tab));
+const showAgentBuilder = !HIDDEN_PLAYGROUND_TABS.has("agent-builder");
 
 interface ProxySettings {
   PROXY_BASE_URL?: string;
@@ -21,7 +27,7 @@ interface ProxySettings {
 export default function PlaygroundPage() {
   const { accessToken, userRole, userId, disabledPersonalKeyCreation, token, isViewOnly } = useAuthorized();
   const [proxySettings, setProxySettings] = useState<ProxySettings | undefined>(undefined);
-  const [activeTab, setActiveTab] = useUrlTab(PLAYGROUND_TABS, "chat");
+  const [activeTab, setActiveTab] = useUrlTab(VISIBLE_PLAYGROUND_TABS, "chat");
 
   useEffect(() => {
     const initializeProxySettings = async () => {
@@ -67,9 +73,11 @@ export default function PlaygroundPage() {
           <TabsTrigger value="compliance" className="flex-none">
             Compliance
           </TabsTrigger>
-          <TabsTrigger value="agent-builder" className="flex-none">
-            Agent Builder (Experimental)
-          </TabsTrigger>
+          {showAgentBuilder && (
+            <TabsTrigger value="agent-builder" className="flex-none">
+              Agent Builder (Experimental)
+            </TabsTrigger>
+          )}
         </TabsList>
         <TabsContent
           value="chat"
@@ -91,18 +99,20 @@ export default function PlaygroundPage() {
         <TabsContent value="compliance" className="mt-0 h-full data-hidden:hidden" keepMounted>
           <ComplianceUI accessToken={accessToken} disabledPersonalKeyCreation={disabledPersonalKeyCreation} />
         </TabsContent>
-        <TabsContent value="agent-builder" className="mt-0 h-full data-hidden:hidden" keepMounted>
-          <DeprecationBanner featureName="The Playground's Agent Builder" />
-          <AgentBuilderView
-            accessToken={accessToken}
-            token={token}
-            userID={userId}
-            userRole={userRole}
-            disabledPersonalKeyCreation={disabledPersonalKeyCreation}
-            proxySettings={proxySettings}
-            customProxyBaseUrl={proxySettings?.LITELLM_UI_API_DOC_BASE_URL ?? proxySettings?.PROXY_BASE_URL}
-          />
-        </TabsContent>
+        {showAgentBuilder && (
+          <TabsContent value="agent-builder" className="mt-0 h-full data-hidden:hidden" keepMounted>
+            <DeprecationBanner featureName="The Playground's Agent Builder" />
+            <AgentBuilderView
+              accessToken={accessToken}
+              token={token}
+              userID={userId}
+              userRole={userRole}
+              disabledPersonalKeyCreation={disabledPersonalKeyCreation}
+              proxySettings={proxySettings}
+              customProxyBaseUrl={proxySettings?.LITELLM_UI_API_DOC_BASE_URL ?? proxySettings?.PROXY_BASE_URL}
+            />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

@@ -7,6 +7,9 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import useAuthorized from "@/app/(dashboard)/hooks/useAuthorized";
+import { useLogout } from "@/app/(dashboard)/hooks/useLogout";
+import SidebarAccountMenu from "@/components/SidebarAccountMenu/SidebarAccountMenu";
 import { ToolbarSeparator } from "@/components/shared/ToolbarSeparator";
 import { getBreadcrumb } from "@/components/leftnav";
 import ViewSwitcher from "@/components/Navbar/ViewSwitcher";
@@ -28,6 +31,8 @@ export function DashboardHeader({ showViewSwitcher = false }: DashboardHeaderPro
   const { title } = getBreadcrumb(usePathname());
   const { isControlPlane, selectedWorker } = useWorker();
   const showWorkerSwitch = isControlPlane && selectedWorker !== null;
+  const { accessToken } = useAuthorized();
+  const logout = useLogout(accessToken);
 
   const handleWorkerSwitch = (workerId: string) => {
     clearTokenCookies();
@@ -63,6 +68,8 @@ export function DashboardHeader({ showViewSwitcher = false }: DashboardHeaderPro
           </>
         )}
         <ThemeToggle />
+        <ToolbarSeparator />
+        <SidebarAccountMenu onLogout={logout} placement="header" />
       </div>
     </header>
   );

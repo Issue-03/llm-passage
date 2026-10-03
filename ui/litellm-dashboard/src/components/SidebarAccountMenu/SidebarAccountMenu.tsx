@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/cva.config";
 import { uiHref } from "@/utils/uiHref";
-import { ChevronsUpDown, IdCard, KeyRound, LogOut, Mail, ShieldCheck } from "lucide-react";
+import { ChevronDown, ChevronsUpDown, IdCard, KeyRound, LogOut, Mail, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React from "react";
 
@@ -71,9 +71,16 @@ const MonoValue: React.FC<{ value: string | null; copyLabel: string }> = ({ valu
 interface SidebarAccountMenuProps {
   onLogout: () => void;
   collapsed?: boolean;
+  /** "header" renders a compact trigger for the top bar that opens downward. */
+  placement?: "sidebar" | "header";
 }
 
-const SidebarAccountMenu: React.FC<SidebarAccountMenuProps> = ({ onLogout, collapsed = false }) => {
+const SidebarAccountMenu: React.FC<SidebarAccountMenuProps> = ({
+  onLogout,
+  collapsed = false,
+  placement = "sidebar",
+}) => {
+  const inHeader = placement === "header";
   const { userId, userEmail, userRoleLabel: userRole, loginMethod } = useAuthorized();
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -86,33 +93,53 @@ const SidebarAccountMenu: React.FC<SidebarAccountMenuProps> = ({ onLogout, colla
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        className={cn(
-          "flex w-full items-center rounded-lg border border-transparent transition-colors hover:bg-sidebar-accent",
-          collapsed ? "justify-center px-0 py-1" : "gap-2.5 px-2 py-1.5 text-left",
-        )}
-        aria-label={triggerLabel}
-        title={collapsed ? displayName : undefined}
-      >
-        <Avatar className="size-[30px] shadow-inner ring-1 ring-black/5" aria-hidden>
-          <AvatarFallback className="font-semibold text-white" style={{ backgroundColor: `hsl(${hue} 46% 38%)` }}>
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-        {!collapsed && (
-          <>
-            <span className="min-w-0 flex-1 leading-tight">
-              <span className="block truncate text-[13px] font-medium text-sidebar-foreground">{displayName}</span>
-              {userRole && <span className="block truncate text-[11px] text-muted-foreground">{userRole}</span>}
-            </span>
-            <ChevronsUpDown size={16} strokeWidth={1.75} className="shrink-0 text-muted-foreground" aria-hidden />
-          </>
-        )}
-      </PopoverTrigger>
+      {inHeader ? (
+        <PopoverTrigger
+          className="flex items-center gap-2 rounded-lg px-1.5 py-1 transition-colors hover:bg-accent"
+          aria-label={triggerLabel}
+        >
+          <Avatar className="size-7 shadow-inner ring-1 ring-black/5" aria-hidden>
+            <AvatarFallback
+              className="text-xs font-semibold text-white"
+              style={{ backgroundColor: `hsl(${hue} 46% 38%)` }}
+            >
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <span className="hidden max-w-[160px] truncate text-[13px] font-medium text-foreground sm:block">
+            {displayName}
+          </span>
+          <ChevronDown size={14} strokeWidth={1.75} className="shrink-0 text-muted-foreground" aria-hidden />
+        </PopoverTrigger>
+      ) : (
+        <PopoverTrigger
+          className={cn(
+            "flex w-full items-center rounded-lg border border-transparent transition-colors hover:bg-sidebar-accent",
+            collapsed ? "justify-center px-0 py-1" : "gap-2.5 px-2 py-1.5 text-left",
+          )}
+          aria-label={triggerLabel}
+          title={collapsed ? displayName : undefined}
+        >
+          <Avatar className="size-[30px] shadow-inner ring-1 ring-black/5" aria-hidden>
+            <AvatarFallback className="font-semibold text-white" style={{ backgroundColor: `hsl(${hue} 46% 38%)` }}>
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          {!collapsed && (
+            <>
+              <span className="min-w-0 flex-1 leading-tight">
+                <span className="block truncate text-[13px] font-medium text-sidebar-foreground">{displayName}</span>
+                {userRole && <span className="block truncate text-[11px] text-muted-foreground">{userRole}</span>}
+              </span>
+              <ChevronsUpDown size={16} strokeWidth={1.75} className="shrink-0 text-muted-foreground" aria-hidden />
+            </>
+          )}
+        </PopoverTrigger>
+      )}
 
       <PopoverContent
-        side="top"
-        align="start"
+        side={inHeader ? "bottom" : "top"}
+        align={inHeader ? "end" : "start"}
         sideOffset={8}
         className="w-[268px] gap-0 overflow-hidden p-0"
         data-testid="sidebar-account-menu-panel"

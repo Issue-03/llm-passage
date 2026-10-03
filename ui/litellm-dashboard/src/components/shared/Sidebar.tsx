@@ -142,7 +142,7 @@ const sidebarMenuButtonVariants = cva(
     "group/menu-btn relative flex w-full items-center gap-2.5 overflow-hidden rounded-md px-2.5 text-left text-[13px] font-medium no-underline",
     "text-sidebar-foreground/70 outline-none transition-colors",
     "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-    "focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+    "focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-sidebar-ring/50",
     "disabled:pointer-events-none disabled:opacity-50",
     "[&>svg]:size-[18px] [&>svg]:shrink-0",
     "group-data-[collapsed=true]/sidebar:mx-auto group-data-[collapsed=true]/sidebar:size-9 group-data-[collapsed=true]/sidebar:justify-center group-data-[collapsed=true]/sidebar:gap-0 group-data-[collapsed=true]/sidebar:px-0",
@@ -150,7 +150,8 @@ const sidebarMenuButtonVariants = cva(
   {
     variants: {
       isActive: {
-        true: "bg-sidebar-accent text-sidebar-accent-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary group-data-[collapsed=true]/sidebar:before:hidden",
+        // Brand-tinted pill: green text and icon on a light green fill, no edge bar.
+        true: "bg-sidebar-primary/10 font-semibold text-sidebar-primary hover:bg-sidebar-primary/15 hover:text-sidebar-primary",
         false: "",
       },
       size: {

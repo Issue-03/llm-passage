@@ -67,6 +67,13 @@ describe("SidebarAccountMenu", () => {
     expect(screen.queryByText("test@example.com")).not.toBeInTheDocument();
   });
 
+  it("shows a compact name trigger in the header placement", () => {
+    renderWithProviders(<SidebarAccountMenu onLogout={mockOnLogout} placement="header" />);
+    expect(getAccountTrigger()).toBeInTheDocument();
+    expect(screen.getByText("TE")).toBeInTheDocument();
+    expect(screen.queryByText("Admin")).not.toBeInTheDocument();
+  });
+
   it("should show email, user ID, and role when the menu is opened", async () => {
     const user = userEvent.setup();
     renderWithProviders(<SidebarAccountMenu onLogout={mockOnLogout} />);

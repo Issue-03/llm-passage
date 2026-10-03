@@ -792,13 +792,13 @@ export default function ComplianceUI({
                     return (
                       <span
                         key={id}
-                        className="inline-flex items-center gap-1 text-[11px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded-sm font-medium dark:bg-indigo-950 dark:text-indigo-300"
+                        className="inline-flex items-center gap-1 text-[11px] bg-info/10 text-info px-1.5 py-0.5 rounded-sm font-medium"
                       >
                         {g?.name}
                         <button
                           type="button"
                           onClick={() => toggleGuardrail(id)}
-                          className="hover:text-indigo-900 dark:hover:text-indigo-100"
+                          className="hover:text-info/80"
                           aria-label="Remove"
                         >
                           <X className="w-2.5 h-2.5" />
@@ -870,7 +870,7 @@ export default function ComplianceUI({
                     value={searchPrompt}
                     onChange={(e) => setSearchPrompt(e.target.value)}
                     placeholder="Search prompts..."
-                    className="w-full border border-border rounded-lg pl-8 pr-3 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-info"
+                    className="w-full border border-border rounded-lg pl-8 pr-3 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-info/20 focus:border-info"
                   />
                 </div>
 
@@ -924,7 +924,7 @@ export default function ComplianceUI({
                     onChange={(e) => setNewPromptText(e.target.value)}
                     placeholder="Enter your test prompt..."
                     rows={2}
-                    className="w-full border border-border rounded-sm px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-info resize-none bg-card"
+                    className="w-full border border-border rounded-sm px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-info/20 focus:border-info resize-none bg-card"
                   />
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-2">
@@ -1138,7 +1138,7 @@ export default function ComplianceUI({
                                           type="checkbox"
                                           checked={selectedPromptIds.has(prompt.id)}
                                           onChange={() => togglePrompt(prompt.id)}
-                                          className="mt-0.5 w-3.5 h-3.5 rounded-sm border-border text-info focus:ring-blue-500/20 shrink-0"
+                                          className="mt-0.5 w-3.5 h-3.5 rounded-sm border-border text-info focus:ring-info/20 shrink-0"
                                         />
                                         <div className="flex-1 min-w-0">
                                           <p className="text-[11px] text-foreground leading-relaxed">{prompt.prompt}</p>
@@ -1226,7 +1226,7 @@ export default function ComplianceUI({
                         return (
                           <span
                             key={id}
-                            className="text-[11px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-sm font-medium dark:bg-indigo-950 dark:text-indigo-300"
+                            className="text-[11px] bg-info/10 text-info px-2 py-0.5 rounded-sm font-medium"
                           >
                             {g?.name}
                           </span>
@@ -1292,7 +1292,7 @@ export default function ComplianceUI({
                 </div>
 
                 <div className="shrink-0 px-5 pb-4">
-                  <div className="border border-border rounded-lg bg-card overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-info">
+                  <div className="border border-border rounded-lg bg-card overflow-hidden focus-within:ring-2 focus-within:ring-info/20 focus-within:border-info">
                     <textarea
                       ref={textareaRef}
                       value={quickTestInput}

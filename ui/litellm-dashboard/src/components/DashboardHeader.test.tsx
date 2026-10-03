@@ -20,6 +20,11 @@ vi.mock("@/app/(dashboard)/hooks/uiSettings/useUISettings", () => ({ useUISettin
 vi.mock("next/navigation", () => ({ usePathname: () => state.pathname }));
 vi.mock("@/hooks/useWorker", () => ({ useWorker: () => ({ isControlPlane: false, selectedWorker: null }) }));
 vi.mock("@/components/Navbar/WorkerDropdown/WorkerDropdown", () => ({ default: () => null }));
+vi.mock("@/app/(dashboard)/hooks/useAuthorized", () => ({ default: () => ({ accessToken: "token" }) }));
+vi.mock("@/app/(dashboard)/hooks/useLogout", () => ({ useLogout: () => vi.fn() }));
+vi.mock("@/components/SidebarAccountMenu/SidebarAccountMenu", () => ({
+  default: ({ placement }: { placement?: string }) => <div data-testid="account-menu" data-placement={placement} />,
+}));
 
 describe("DashboardHeader breadcrumb", () => {
   afterEach(() => {
@@ -33,6 +38,12 @@ describe("DashboardHeader breadcrumb", () => {
     render(<DashboardHeader />);
 
     expect(screen.getByText("Models + Endpoints")).toBeInTheDocument();
+  });
+
+  it("renders the account menu in the top bar", () => {
+    render(<DashboardHeader />);
+
+    expect(screen.getByTestId("account-menu")).toHaveAttribute("data-placement", "header");
   });
 
   it("titles the dashboard root as Virtual Keys", () => {
@@ -79,6 +90,7 @@ describe("DashboardHeader breadcrumb", () => {
     expect(screen.queryByRole("button", { name: /blog/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Community links" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Notifications" })).not.toBeInTheDocument();
-    expect(container.querySelectorAll('[data-slot="separator"][data-orientation="vertical"]')).toHaveLength(0);
+    // The only separator left sits between the theme toggle and the account menu.
+    expect(container.querySelectorAll('[data-slot="separator"][data-orientation="vertical"]')).toHaveLength(1);
   });
 });

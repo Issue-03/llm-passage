@@ -1,7 +1,6 @@
 import { useTeams } from "@/app/(dashboard)/hooks/teams/useTeams";
 import useAuthorized from "@/app/(dashboard)/hooks/useAuthorized";
 import useIsOrgAdmin from "@/app/(dashboard)/hooks/useIsOrgAdmin";
-import { useLogout } from "@/app/(dashboard)/hooks/useLogout";
 import { getProxyBaseUrl } from "@/components/networking";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
@@ -39,8 +38,7 @@ import {
   LayoutGrid,
   Network,
   Palette,
-  PanelLeftClose,
-  PanelLeftOpen,
+  Menu,
   PiggyBank,
   PlayCircle,
   Route,
@@ -71,7 +69,6 @@ import {
   rolesAllowedToViewWriteScopedPages,
   rolesWithWriteAccess,
 } from "../utils/roles";
-import SidebarAccountMenu from "./SidebarAccountMenu/SidebarAccountMenu";
 import SidebarUsageCard from "./SidebarUsageCard";
 import { routeSegmentForPathname, uiHref } from "@/utils/uiHref";
 
@@ -134,7 +131,7 @@ const HIDDEN_ITEMS: ReadonlySet<string> = new Set([
 
 const menuGroups: MenuGroup[] = [
   {
-    groupLabel: "AI GATEWAY",
+    groupLabel: "PLATFORM",
     items: [
       { key: "api-keys", page: "api-keys", label: "Virtual Keys", icon: <KeyRound {...ICON} /> },
       {
@@ -247,7 +244,7 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
-    groupLabel: "ACCESS CONTROL",
+    groupLabel: "TEAMS & USERS",
     items: [
       { key: "teams", page: "teams", label: "Teams", icon: <Users {...ICON} /> },
       {
@@ -399,9 +396,9 @@ const findMenuItemKey = (route: string): string => {
 };
 
 const SECTION_DISPLAY: Record<string, string> = {
-  "AI GATEWAY": "AI Gateway",
+  PLATFORM: "Platform",
   OBSERVABILITY: "Observability",
-  "ACCESS CONTROL": "Access Control",
+  "TEAMS & USERS": "Teams & Users",
   "DEVELOPER TOOLS": "Developer Tools",
   SETTINGS: "Settings",
 };
@@ -445,7 +442,6 @@ const Sidebar_: React.FC<SidebarProps> = ({
   const { data: teams } = useTeams();
   const { logoUrl, logoUrlDark } = useTheme();
   const [erroredDarkLogo, setErroredDarkLogo] = useState<string | null>(null);
-  const logout = useLogout(accessToken);
 
   const baseUrl = getProxyBaseUrl();
   const currentRoute = routeForPathname(usePathname());
@@ -636,7 +632,7 @@ const Sidebar_: React.FC<SidebarProps> = ({
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
               className="flex-none text-muted-foreground"
             >
-              {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+              <Menu />
             </Button>
           )}
         </div>
@@ -654,16 +650,16 @@ const Sidebar_: React.FC<SidebarProps> = ({
         </nav>
       </ScrollArea>
 
-      <SidebarFooter>
-        {isAdminRole(userRole) && (
+      {/* The account menu lives in the top bar (DashboardHeader). */}
+      {isAdminRole(userRole) && (
+        <SidebarFooter>
           <SidebarUsageCard
             accessToken={accessToken}
             collapsed={collapsed}
             onExpandRail={() => onToggleCollapsed?.()}
           />
-        )}
-        <SidebarAccountMenu onLogout={logout} collapsed={collapsed} />
-      </SidebarFooter>
+        </SidebarFooter>
+      )}
     </Sidebar>
   );
 };

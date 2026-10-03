@@ -629,22 +629,22 @@ describe("Sidebar (leftnav)", () => {
 
 describe("getBreadcrumb", () => {
   it("resolves a top-level route to its section + title", () => {
-    expect(getBreadcrumb("/ui/api-keys")).toEqual({ section: "AI Gateway", title: "Virtual Keys" });
+    expect(getBreadcrumb("/ui/api-keys")).toEqual({ section: "Platform", title: "Virtual Keys" });
     expect(getBreadcrumb("/ui/logs")).toEqual({ section: "Observability", title: "Logs" });
   });
 
   it("resolves routes whose segment differs from the sidebar page id", () => {
-    expect(getBreadcrumb("/ui/models-and-endpoints")).toEqual({ section: "AI Gateway", title: "Models + Endpoints" });
+    expect(getBreadcrumb("/ui/models-and-endpoints")).toEqual({ section: "Platform", title: "Models + Endpoints" });
     expect(getBreadcrumb("/ui/usage")).toEqual({ section: "Observability", title: "Usage" });
     expect(getBreadcrumb("/ui/old-usage")).toEqual({ section: "Developer Tools", title: "Old Usage" });
   });
 
   it("titles the dashboard root as Virtual Keys", () => {
-    expect(getBreadcrumb("/ui/")).toEqual({ section: "AI Gateway", title: "Virtual Keys" });
+    expect(getBreadcrumb("/ui/")).toEqual({ section: "Platform", title: "Virtual Keys" });
   });
 
   it("resolves a nested child route to its parent section", () => {
-    expect(getBreadcrumb("/ui/search-tools/")).toEqual({ section: "AI Gateway", title: "Search Tools" });
+    expect(getBreadcrumb("/ui/search-tools/")).toEqual({ section: "Platform", title: "Search Tools" });
   });
 
   it("resolves router-settings under the Settings section", () => {

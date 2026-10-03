@@ -210,12 +210,12 @@ After each batch: tests for the touched files (`LANG=en_US.UTF-8`), lint, build,
 
 27 files deleted, including the dead components and hooks and their tests. The affected tests were updated.
 
-### Removed after `c2afca9` (not committed yet)
+### Removed after `c2afca9` (commit `80f1424`, pushed 2026-10-04)
 
 - **Models + Endpoints page:** the "Help shape cost optimization / Share Feedback" banner (it linked to a LiteLLM GitHub discussion). The component `molecules/cost_optimization_feedback_banner.tsx` and its test are deleted.
 - **Test fixes:** two tests still expected old text the commits had already changed: "Auto-Routers Beta" on the Models tabs (from `c2afca9`) and the "LiteLLM Parameters" button on agents (from `ada1ef5`). Both are fixed. A wider run of every test in the folders touched since the baseline now passes: 452 files, 6,484 tests.
 
-### Hidden (done 2026-10-04, not committed yet)
+### Hidden (commit `80f1424`, pushed 2026-10-04; Agent Builder added later, see below)
 
 **Sidebar:** these lists sit at the top of `ui/litellm-dashboard/src/components/leftnav.tsx`; delete an entry to bring it back.
 - `HIDDEN_GROUPS`: three whole sections:
@@ -223,12 +223,12 @@ After each batch: tests for the touched files (`LANG=en_US.UTF-8`), lint, build,
   - **Developer Tools** (API Reference, AI Hub, Response Cache, Experimental)
   - **Settings** (Router Settings, Logging & Alerts, Admin Settings, Cost Tracking, UI Theme)
 - `HIDDEN_ITEMS`:
-  - AI Gateway: Agentic, MCP Servers, Skills, Policies, Tools
-  - Access Control: Projects, Organizations, Access Groups, Budgets
+  - Platform (was AI Gateway): Agentic, MCP Servers, Skills, Policies, Tools
+  - Teams & Users (was Access Control): Projects, Organizations, Access Groups, Budgets
 
 **What's still in the sidebar:**
-- AI Gateway: Virtual Keys, Playground, Models + Endpoints, Guardrails
-- Access Control: Teams, Internal Users
+- Platform: Virtual Keys, Playground, Models + Endpoints, Guardrails
+- Teams & Users: Teams, Internal Users
 
 `Sidebar` accepts `hiddenGroups` / `hiddenItems` props. The sidebar tests pass empty sets so the role and permission rules are still tested against the full menu, and a separate test checks the default hiding.
 
@@ -242,7 +242,7 @@ After each batch: tests for the touched files (`LANG=en_US.UTF-8`), lint, build,
   - a saved MCP or A2A endpoint falls back to `/v1/chat/completions`
 - The two MCP-picker tests use `it.skipIf(!PLAYGROUND_FIELD_VISIBILITY.mcpServers)`, so they come back on when the field is shown.
 
-### Recolored (not committed yet)
+### Recolored (commit `80f1424`, pushed 2026-10-04)
 
 23 elements were styled with the theme's **info** color (LiteLLM's blue) instead of **primary**, so the Phase 1 theme change missed them. They now use the brand green:
 - **Buttons:** Add Guardrail, plus Playground chat/compliance, MCP submissions and the credential modal
@@ -250,12 +250,30 @@ After each batch: tests for the touched files (`LANG=en_US.UTF-8`), lint, build,
 - **Progress markers:** step circles and dots, progress bars
 - **Chat:** the user's chat bubbles
 
-Info-blue was **kept** where it means something rather than being branding: "running"/"reachable" status dots, loading pulses, trace timeline bars, the personal-vs-team marker, and the light-blue info notice boxes.
+Info-blue was **kept** where it means something rather than being branding: "running"/"reachable" status dots, loading pulses, trace timeline bars, the personal-vs-team marker, and the light-blue info notice boxes. (Later the `--info` color itself became teal, see "Look and feel".)
+
+### Look and feel (done 2026-10-04)
+
+Mostly theme values, so the whole UI follows without touching page layouts.
+
+- **Fonts** (`app/layout.tsx`, `--font-sans` / `--font-mono` in `globals.css`): Inter → **Plus Jakarta Sans** for text, **JetBrains Mono** for keys, IDs and code.
+- **Neutrals** (`globals.css`): the cool blue-grays now have a faint green tint (hue ~155–160), in light and dark mode.
+- **Surfaces:** off-white page background with white cards; the sidebar is a light green-gray (deep green-black in dark mode). Dark-mode cards sit slightly above the page. Bare form fields use `--card` so they stay white on the off-white page.
+- **Corners:** `--radius` 0.5rem → 0.75rem.
+- **Accent:** `--info` (LiteLLM blue, used ~610 times for links, active tabs, tags and focus borders) → deep teal, distinct from the success green. Info alerts are teal too.
+- **Compliance tab** (`complianceUI/ComplianceUI.tsx`): hard-coded indigo chips and `ring-blue-500` focus rings → the `info` accent.
+- **Sidebar section names** (`leftnav.tsx`): AI GATEWAY → **PLATFORM**, ACCESS CONTROL → **TEAMS & USERS** (the breadcrumb follows).
+- **Sidebar toggle:** panel icons → hamburger (`Menu`), same icon in both states.
+- **Selected sidebar item** (`shared/Sidebar.tsx`): grey fill + left green bar → light green pill with green text and icon, semibold; the keyboard focus ring is now a thin inset line.
+- **Account menu** moved from the sidebar footer to the top-right of the top bar (`DashboardHeader.tsx`), via `placement="header"` on `SidebarAccountMenu` (compact avatar + name trigger, opens downward). The sidebar footer now shows only the admin usage card.
+- **Playground:** the Agent Builder (Experimental) tab is hidden through `HIDDEN_PLAYGROUND_TABS` in `playground/page.tsx`; `?tab=agent-builder` falls back to Chat.
+
+Tests added or updated for the header account menu, the Agent Builder tab, the sidebar active style and the breadcrumb names.
 
 ### Still to decide
 
 - Policies → Attachments still shows an "Enterprise Feature Notice" box.
-- The ✓ in the app switcher uses info-blue (it only matters if the switcher comes back).
+- About 50 hard-coded `blue-*` / `indigo-*` classes remain on pages outside the Compliance tab; fix as they're spotted.
 - Later: delete the code for hidden pages that stay unused, then run `npm run knip` for leftovers.
 
 ---
