@@ -21,7 +21,6 @@ vi.mock("./detailNavigation", () => ({
   useModelDetailRouting: () => ({ ...detailState, close: vi.fn(), openModel: vi.fn(), openTeam: vi.fn() }),
 }));
 
-vi.mock("@/components/molecules/cost_optimization_feedback_banner", () => ({ default: () => null }));
 vi.mock("@/components/model_info_view", () => ({
   default: ({ modelId }: { modelId: string }) => <div data-testid="model-info">model:{modelId}</div>,
 }));
@@ -140,13 +139,13 @@ describe("ModelsAndEndpointsPage", () => {
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "Deployed Models",
       "Add Model",
-      "Auto-Routers Beta",
+      "Auto-Routers",
       "LLM Credentials",
       "Pass-Through Endpoints",
       "Health Status",
       "Model Retry Settings",
       "Model Group Alias",
-      "Model Access Group Budgets Beta",
+      "Model Access Group Budgets",
       "Price Data Reload",
     ]);
   });

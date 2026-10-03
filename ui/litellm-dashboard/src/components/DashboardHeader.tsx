@@ -19,7 +19,12 @@ import { usePathname } from "next/navigation";
 
 // Top bar for the dashboard shell. Sits only over the content column (the brand
 // lives in the sidebar header); mirrors the design's breadcrumb-left / tools-right layout.
-export function DashboardHeader() {
+interface DashboardHeaderProps {
+  /** Show the AI Gateway / Chat app switcher at the root of the breadcrumb. Hidden for now. */
+  showViewSwitcher?: boolean;
+}
+
+export function DashboardHeader({ showViewSwitcher = false }: DashboardHeaderProps = {}) {
   const { title } = getBreadcrumb(usePathname());
   const { isControlPlane, selectedWorker } = useWorker();
   const showWorkerSwitch = isControlPlane && selectedWorker !== null;
@@ -36,10 +41,14 @@ export function DashboardHeader() {
     <header className="flex h-14 flex-none items-center justify-between gap-4 border-b border-border bg-background px-4">
       <Breadcrumb className="min-w-0">
         <BreadcrumbList className="flex-nowrap">
-          <BreadcrumbItem className="flex-none">
-            <ViewSwitcher />
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
+          {showViewSwitcher && (
+            <>
+              <BreadcrumbItem className="flex-none">
+                <ViewSwitcher />
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+            </>
+          )}
           <BreadcrumbItem className="min-w-0">
             <BreadcrumbPage className="truncate">{title}</BreadcrumbPage>
           </BreadcrumbItem>

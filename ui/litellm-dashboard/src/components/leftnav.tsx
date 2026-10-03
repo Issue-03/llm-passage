@@ -88,6 +88,10 @@ interface SidebarProps {
   allowAgentsForTeamAdmins?: boolean;
   disableVectorStoresForInternalUsers?: boolean;
   allowVectorStoresForTeamAdmins?: boolean;
+  /** Group labels left out of the sidebar. Defaults to HIDDEN_GROUPS. */
+  hiddenGroups?: ReadonlySet<string>;
+  /** Top-level item keys left out of the sidebar. Defaults to HIDDEN_ITEMS. */
+  hiddenItems?: ReadonlySet<string>;
 }
 
 interface MenuItem {
@@ -110,6 +114,24 @@ interface MenuGroup {
 // Menu groups organized by category - defined outside component for export.
 // Shape (key/page/label/roles/children) is consumed by page_utils.ts; only the
 // icons changed to lucide as part of the sidebar redesign.
+// Sections and pages hidden from the sidebar. The pages still exist and are reachable by URL;
+// delete an entry here to bring it back.
+const HIDDEN_GROUPS: ReadonlySet<string> = new Set(["OBSERVABILITY", "DEVELOPER TOOLS", "SETTINGS"]);
+const HIDDEN_ITEMS: ReadonlySet<string> = new Set([
+  "agentic",
+  "mcp-servers",
+  "skills",
+  "policies",
+  "tools",
+  "projects",
+  "organizations",
+  "access-groups",
+  "budgets",
+  "model-hub-table",
+  "caching",
+  "experimental",
+]);
+
 const menuGroups: MenuGroup[] = [
   {
     groupLabel: "AI GATEWAY",
@@ -415,6 +437,8 @@ const Sidebar_: React.FC<SidebarProps> = ({
   allowAgentsForTeamAdmins,
   disableVectorStoresForInternalUsers,
   allowVectorStoresForTeamAdmins,
+  hiddenGroups = HIDDEN_GROUPS,
+  hiddenItems = HIDDEN_ITEMS,
 }) => {
   const { userId, accessToken, userRole, isViewOnly } = useAuthorized();
   const isOrgAdmin = useIsOrgAdmin();
@@ -489,8 +513,12 @@ const Sidebar_: React.FC<SidebarProps> = ({
   };
 
   const visibleGroups = menuGroups
+    .filter((group) => !hiddenGroups.has(group.groupLabel))
     .filter((group) => !group.roles || group.roles.includes(userRole))
-    .map((group) => ({ groupLabel: group.groupLabel, items: filterItemsByRole(group.items) }))
+    .map((group) => ({
+      groupLabel: group.groupLabel,
+      items: filterItemsByRole(group.items.filter((item) => !hiddenItems.has(item.key))),
+    }))
     .filter((group) => group.items.length > 0);
 
   const toggleGroup = (key: string) => {

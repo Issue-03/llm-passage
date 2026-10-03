@@ -8,7 +8,6 @@ import { useTeams } from "@/app/(dashboard)/hooks/teams/useTeams";
 import { useUISettings } from "@/app/(dashboard)/hooks/uiSettings/useUISettings";
 import { all_admin_roles, internalUserRoles } from "@/utils/roles";
 import { autoRouterCreationScope, canCreateModels } from "@/utils/modelPermissions";
-import CostOptimizationFeedbackBanner from "@/components/molecules/cost_optimization_feedback_banner";
 import ModelInfoView from "@/components/model_info_view";
 import TeamInfoView from "@/components/team/TeamInfo";
 import { useModelDetailRouting } from "@/app/(dashboard)/models-and-endpoints/detailNavigation";
@@ -168,8 +167,6 @@ export default function ModelsAndEndpointsPage() {
             )}
           </div>
         </div>
-
-        <CostOptimizationFeedbackBanner />
 
         {modelId ? (
           <ModelInfoView

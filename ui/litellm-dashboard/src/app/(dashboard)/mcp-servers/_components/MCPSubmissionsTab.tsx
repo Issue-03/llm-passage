@@ -237,7 +237,7 @@ function SubmissionRulesPanel({ requiredFields, onChange, onSave, isSaving }: Su
                 await onSave();
                 setExpanded(false);
               }}
-              className="px-4 py-1.5 text-sm font-medium text-info-foreground bg-info hover:bg-info/80 disabled:opacity-50 rounded-md transition-colors"
+              className="px-4 py-1.5 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 disabled:opacity-50 rounded-md transition-colors"
             >
               {isSaving ? "Saving…" : "Save Rules"}
             </button>

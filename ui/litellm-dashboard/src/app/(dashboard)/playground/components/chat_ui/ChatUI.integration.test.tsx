@@ -6,6 +6,7 @@ import ChatUI from "./ChatUI";
 import * as fetchModelsModule from "@/components/llm_calls/fetch_models";
 import { makeOpenAIChatCompletionRequest } from "@/components/llm_calls/chat_completion";
 import { makeAnthropicMessagesRequest } from "../../llm_calls/anthropic_messages";
+import { PLAYGROUND_FIELD_VISIBILITY } from "./chatConstants";
 
 vi.mock("@/components/llm_calls/fetch_models", () => ({
   fetchAvailableModels: vi.fn(),
@@ -282,7 +283,7 @@ describe("ChatUI", () => {
     });
   });
 
-  it("should enable the MCP tools selector for chat completions", async () => {
+  it.skipIf(!PLAYGROUND_FIELD_VISIBILITY.mcpServers)("should enable the MCP tools selector for chat completions", async () => {
     render(
       <ChatUI
         accessToken="1234567890"
@@ -618,7 +619,25 @@ describe("ChatUI", () => {
     expect(customProxyInput).toHaveValue(testProxyUrl);
   });
 
-  it("should enable search functionality for MCP server selector", async () => {
+  it("hides the MCP Servers, Vector Store and Policies fields but keeps Guardrails", async () => {
+    render(
+      <ChatUI
+        accessToken="1234567890"
+        token="1234567890"
+        userRole="user"
+        userID="1234567890"
+        disabledPersonalKeyCreation={false}
+      />,
+    );
+
+    expect(await screen.findByText("Test Key")).toBeInTheDocument();
+    expect(screen.getByText("Guardrails")).toBeInTheDocument();
+    expect(screen.queryByText("MCP Servers")).not.toBeInTheDocument();
+    expect(screen.queryByText("Vector Store")).not.toBeInTheDocument();
+    expect(screen.queryByText("Policies")).not.toBeInTheDocument();
+  });
+
+  it.skipIf(!PLAYGROUND_FIELD_VISIBILITY.mcpServers)("should enable search functionality for MCP server selector", async () => {
     const user = userEvent.setup();
     render(
       <ChatUI

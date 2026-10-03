@@ -52,7 +52,12 @@ import { makeOpenAIImageGenerationRequest } from "../../llm_calls/image_generati
 import { makeOpenAIResponsesRequest } from "@/components/llm_calls/responses_api";
 import { makeInteractionsRequest } from "../../llm_calls/interactions_api";
 import AdditionalModelSettings from "./AdditionalModelSettings";
-import { OPEN_AI_VOICE_SELECT_OPTIONS, OpenAIVoice } from "./chatConstants";
+import {
+  HIDDEN_ENDPOINT_TYPES,
+  OPEN_AI_VOICE_SELECT_OPTIONS,
+  OpenAIVoice,
+  PLAYGROUND_FIELD_VISIBILITY,
+} from "./chatConstants";
 import ChatComposer, { CodeInterpreterToggle } from "./ChatComposer";
 import ChatImageUpload from "./ChatImageUpload";
 import { createChatDisplayMessage, createChatMultimodalMessage } from "./ChatImageUtils";
@@ -137,6 +142,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
   const [isToolsetsInfoModalVisible, setIsToolsetsInfoModalVisible] = useState(false);
   const [byokModalServer, setByokModalServer] = useState<MCPServer | null>(null);
   const [selectedMCPServers, setSelectedMCPServers] = useState<string[]>(() => {
+    if (!PLAYGROUND_FIELD_VISIBILITY.mcpServers) return [];
     const saved = sessionStorage.getItem("selectedMCPServers");
     try {
       return saved ? JSON.parse(saved) : [];
@@ -150,6 +156,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
   const [selectedMCPDirectTool, setSelectedMCPDirectTool] = useState<string | undefined>(undefined);
   const mcpToolArgsFormRef = useRef<MCPToolArgumentsFormRef>(null);
   const [mcpServerToolRestrictions, setMCPServerToolRestrictions] = useState<Record<string, string[]>>(() => {
+    if (!PLAYGROUND_FIELD_VISIBILITY.mcpServers) return {};
     const saved = sessionStorage.getItem("mcpServerToolRestrictions");
     try {
       return saved ? JSON.parse(saved) : {};
@@ -210,9 +217,10 @@ const ChatUI: React.FC<ChatUIProps> = ({
   const debouncedSetSelectedModel = useDebouncedCallback((value: string) => setSelectedModel(value), {
     wait: CUSTOM_MODEL_DEBOUNCE_WAIT_MS,
   });
-  const [endpointType, setEndpointType] = useState<string | null>(
-    () => sessionStorage.getItem("endpointType") || EndpointType.CHAT,
-  );
+  const [endpointType, setEndpointType] = useState<string | null>(() => {
+    const saved = sessionStorage.getItem("endpointType");
+    return saved && !HIDDEN_ENDPOINT_TYPES.has(saved) ? saved : EndpointType.CHAT;
+  });
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>(() => {
@@ -239,6 +247,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
     }
   });
   const [selectedVectorStores, setSelectedVectorStores] = useState<string[]>(() => {
+    if (!PLAYGROUND_FIELD_VISIBILITY.vectorStores) return [];
     const saved = sessionStorage.getItem("selectedVectorStores");
     try {
       return saved ? JSON.parse(saved) : [];
@@ -257,6 +266,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
     }
   });
   const [selectedPolicies, setSelectedPolicies] = useState<string[]>(() => {
+    if (!PLAYGROUND_FIELD_VISIBILITY.policies) return [];
     const saved = sessionStorage.getItem("selectedPolicies");
     try {
       return saved ? JSON.parse(saved) : [];
@@ -1519,198 +1529,202 @@ const ChatUI: React.FC<ChatUIProps> = ({
                   </div>
                 )}
 
-                <div>
-                  <div className="mb-2 flex items-center gap-1 text-sm font-medium text-foreground">
-                    <Wrench className="mr-1 size-4" aria-hidden="true" />
-                    {endpointType === EndpointType.MCP ? "MCP Server" : "MCP Servers"}
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <button
-                            type="button"
-                            className="inline-flex"
-                            aria-label="About MCP servers and toolsets"
-                            onClick={() => setIsToolsetsInfoModalVisible(true)}
-                          />
+                {PLAYGROUND_FIELD_VISIBILITY.mcpServers && (
+                  <div>
+                    <div className="mb-2 flex items-center gap-1 text-sm font-medium text-foreground">
+                      <Wrench className="mr-1 size-4" aria-hidden="true" />
+                      {endpointType === EndpointType.MCP ? "MCP Server" : "MCP Servers"}
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <button
+                              type="button"
+                              className="inline-flex"
+                              aria-label="About MCP servers and toolsets"
+                              onClick={() => setIsToolsetsInfoModalVisible(true)}
+                            />
+                          }
+                        >
+                          <Info className="size-3.5 cursor-pointer text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          {endpointType === EndpointType.MCP
+                            ? "Select an MCP server or toolset to test tools directly."
+                            : "Select MCP servers or toolsets to use in your conversation."}
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    {endpointType === EndpointType.MCP ? (
+                      <SearchSelect
+                        value={
+                          selectedMCPServers[0] !== "__all__" && selectedMCPServers.length === 1
+                            ? selectedMCPServers[0]
+                            : undefined
                         }
-                      >
-                        <Info className="size-3.5 cursor-pointer text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        {endpointType === EndpointType.MCP
-                          ? "Select an MCP server or toolset to test tools directly."
-                          : "Select MCP servers or toolsets to use in your conversation."}
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  {endpointType === EndpointType.MCP ? (
-                    <SearchSelect
-                      value={
-                        selectedMCPServers[0] !== "__all__" && selectedMCPServers.length === 1
-                          ? selectedMCPServers[0]
-                          : undefined
-                      }
-                      placeholder="Select MCP server"
-                      emptyText={isLoadingMCPServers ? "Loading..." : "No MCP servers"}
-                      disabled={!MCP_SUPPORTED_ENDPOINTS.has(endpointType as EndpointType) || isLoadingMCPServers}
-                      onValueChange={(value) => handleMcpServersChange(value ? [value] : [])}
-                      options={mcpServerOptions}
-                      className="mb-2"
-                    />
-                  ) : (
-                    <MultiSelect
-                      value={selectedMCPServers}
-                      onValueChange={handleMcpServersChange}
-                      placeholder="Select MCP servers"
-                      emptyText={isLoadingMCPServers ? "Loading..." : "No MCP servers"}
-                      disabled={!MCP_SUPPORTED_ENDPOINTS.has(endpointType as EndpointType)}
-                      loading={isLoadingMCPServers}
-                      options={mcpServerOptions}
-                      className="mb-2"
-                    />
-                  )}
+                        placeholder="Select MCP server"
+                        emptyText={isLoadingMCPServers ? "Loading..." : "No MCP servers"}
+                        disabled={!MCP_SUPPORTED_ENDPOINTS.has(endpointType as EndpointType) || isLoadingMCPServers}
+                        onValueChange={(value) => handleMcpServersChange(value ? [value] : [])}
+                        options={mcpServerOptions}
+                        className="mb-2"
+                      />
+                    ) : (
+                      <MultiSelect
+                        value={selectedMCPServers}
+                        onValueChange={handleMcpServersChange}
+                        placeholder="Select MCP servers"
+                        emptyText={isLoadingMCPServers ? "Loading..." : "No MCP servers"}
+                        disabled={!MCP_SUPPORTED_ENDPOINTS.has(endpointType as EndpointType)}
+                        loading={isLoadingMCPServers}
+                        options={mcpServerOptions}
+                        className="mb-2"
+                      />
+                    )}
 
-                  {endpointType === EndpointType.MCP &&
-                    selectedMCPServers.length === 1 &&
-                    selectedMCPServers[0] !== "__all__" &&
-                    (() => {
-                      const rawSel = selectedMCPServers[0];
-                      const isToolset = rawSel.startsWith("toolset:");
-                      let toolOptions: { value: string; label: string }[] = [];
-                      if (isToolset) {
-                        const toolsetId = rawSel.slice("toolset:".length);
-                        const toolset = mcpToolsets.find((t) => t.toolset_id === toolsetId);
-                        if (toolset) {
-                          toolOptions = toolset.tools.map((t) => ({
-                            value: t.tool_name,
-                            label: t.tool_name,
+                    {endpointType === EndpointType.MCP &&
+                      selectedMCPServers.length === 1 &&
+                      selectedMCPServers[0] !== "__all__" &&
+                      (() => {
+                        const rawSel = selectedMCPServers[0];
+                        const isToolset = rawSel.startsWith("toolset:");
+                        let toolOptions: { value: string; label: string }[] = [];
+                        if (isToolset) {
+                          const toolsetId = rawSel.slice("toolset:".length);
+                          const toolset = mcpToolsets.find((t) => t.toolset_id === toolsetId);
+                          if (toolset) {
+                            toolOptions = toolset.tools.map((t) => ({
+                              value: t.tool_name,
+                              label: t.tool_name,
+                            }));
+                          }
+                        } else {
+                          toolOptions = (serverToolsMap[rawSel] || []).map((tool: { name: string }) => ({
+                            value: tool.name,
+                            label: tool.name,
                           }));
                         }
-                      } else {
-                        toolOptions = (serverToolsMap[rawSel] || []).map((tool: { name: string }) => ({
-                          value: tool.name,
-                          label: tool.name,
-                        }));
-                      }
-                      return (
-                        <div className="mt-3">
-                          <p className="mb-1 block text-xs text-muted-foreground">Select Tool</p>
-                          <SearchSelect
-                            value={selectedMCPDirectTool}
-                            placeholder="Select a tool to call"
-                            onValueChange={(value) => setSelectedMCPDirectTool(value || undefined)}
-                            options={toolOptions}
-                            className="rounded-md"
-                          />
+                        return (
+                          <div className="mt-3">
+                            <p className="mb-1 block text-xs text-muted-foreground">Select Tool</p>
+                            <SearchSelect
+                              value={selectedMCPDirectTool}
+                              placeholder="Select a tool to call"
+                              onValueChange={(value) => setSelectedMCPDirectTool(value || undefined)}
+                              options={toolOptions}
+                              className="rounded-md"
+                            />
+                          </div>
+                        );
+                      })()}
+
+                    {selectedMCPServers.length > 0 &&
+                      !selectedMCPServers.includes("__all__") &&
+                      endpointType !== EndpointType.MCP &&
+                      MCP_SUPPORTED_ENDPOINTS.has(endpointType as EndpointType) && (
+                        <div className="mt-3 space-y-2">
+                          {selectedMCPServers.map((serverId) => {
+                            const server = mcpServers.find((s) => s.server_id === serverId);
+                            const tools = serverToolsMap[serverId] || [];
+                            if (tools.length === 0) return null;
+
+                            return (
+                              <div key={serverId} className="rounded-sm border p-2">
+                                <p className="mb-1 text-xs text-muted-foreground">
+                                  Limit tools for {server?.alias || server?.server_name || serverId}:
+                                </p>
+                                <MultiSelect
+                                  value={mcpServerToolRestrictions[serverId] || []}
+                                  onValueChange={(selectedTools) => {
+                                    setMCPServerToolRestrictions((prev) => ({
+                                      ...prev,
+                                      [serverId]: selectedTools,
+                                    }));
+                                  }}
+                                  placeholder="All tools (default)"
+                                  options={tools.map((tool: { name: string }) => ({
+                                    value: tool.name,
+                                    label: tool.name,
+                                  }))}
+                                />
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })()}
+                      )}
 
-                  {selectedMCPServers.length > 0 &&
-                    !selectedMCPServers.includes("__all__") &&
-                    endpointType !== EndpointType.MCP &&
-                    MCP_SUPPORTED_ENDPOINTS.has(endpointType as EndpointType) && (
-                      <div className="mt-3 space-y-2">
-                        {selectedMCPServers.map((serverId) => {
-                          const server = mcpServers.find((s) => s.server_id === serverId);
-                          const tools = serverToolsMap[serverId] || [];
-                          if (tools.length === 0) return null;
-
-                          return (
-                            <div key={serverId} className="rounded-sm border p-2">
-                              <p className="mb-1 text-xs text-muted-foreground">
-                                Limit tools for {server?.alias || server?.server_name || serverId}:
-                              </p>
-                              <MultiSelect
-                                value={mcpServerToolRestrictions[serverId] || []}
-                                onValueChange={(selectedTools) => {
-                                  setMCPServerToolRestrictions((prev) => ({
-                                    ...prev,
-                                    [serverId]: selectedTools,
-                                  }));
-                                }}
-                                placeholder="All tools (default)"
-                                options={tools.map((tool: { name: string }) => ({
-                                  value: tool.name,
-                                  label: tool.name,
-                                }))}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                  {selectedMCPServers.length > 0 &&
-                    !selectedMCPServers.includes("__all__") &&
-                    selectedMCPServers.some((serverId) => {
-                      const server = mcpServers.find((s) => s.server_id === serverId);
-                      return server?.is_byok;
-                    }) && (
-                      <div className="mt-3 space-y-2">
-                        {selectedMCPServers.map((serverId) => {
-                          const server = mcpServers.find((s) => s.server_id === serverId);
-                          if (!server?.is_byok) return null;
-                          const serverName = server.alias || server.server_name || serverId;
-                          return (
-                            <div
-                              key={serverId}
-                              className="flex items-center justify-between rounded-sm border border-info/15 bg-info/10 p-2"
-                            >
-                              <p className="text-xs text-info">{serverName} requires your API key</p>
-                              {server.has_user_credential ? (
-                                <div className="flex items-center gap-2">
-                                  <span className="flex items-center gap-1 text-xs font-medium text-success">
-                                    <Key className="size-3" /> Connected
-                                  </span>
-                                  <button
+                    {selectedMCPServers.length > 0 &&
+                      !selectedMCPServers.includes("__all__") &&
+                      selectedMCPServers.some((serverId) => {
+                        const server = mcpServers.find((s) => s.server_id === serverId);
+                        return server?.is_byok;
+                      }) && (
+                        <div className="mt-3 space-y-2">
+                          {selectedMCPServers.map((serverId) => {
+                            const server = mcpServers.find((s) => s.server_id === serverId);
+                            if (!server?.is_byok) return null;
+                            const serverName = server.alias || server.server_name || serverId;
+                            return (
+                              <div
+                                key={serverId}
+                                className="flex items-center justify-between rounded-sm border border-info/15 bg-info/10 p-2"
+                              >
+                                <p className="text-xs text-info">{serverName} requires your API key</p>
+                                {server.has_user_credential ? (
+                                  <div className="flex items-center gap-2">
+                                    <span className="flex items-center gap-1 text-xs font-medium text-success">
+                                      <Key className="size-3" /> Connected
+                                    </span>
+                                    <button
+                                      type="button"
+                                      className="text-xs text-muted-foreground underline hover:text-info"
+                                      onClick={() => setByokModalServer(server)}
+                                    >
+                                      Reconnect
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <Button
                                     type="button"
-                                    className="text-xs text-muted-foreground underline hover:text-info"
+                                    size="xs"
+                                    className="rounded-lg bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90"
                                     onClick={() => setByokModalServer(server)}
                                   >
-                                    Reconnect
-                                  </button>
-                                </div>
-                              ) : (
-                                <Button
-                                  type="button"
-                                  size="xs"
-                                  className="rounded-lg bg-info px-3 py-1 text-xs font-medium text-info-foreground hover:bg-info/80"
-                                  onClick={() => setByokModalServer(server)}
-                                >
-                                  Connect
-                                </Button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                </div>
-
-                <div>
-                  <div className="mb-2 flex items-center gap-1 text-sm font-medium text-foreground">
-                    <Database className="mr-1 size-4" aria-hidden="true" /> Vector Store
-                    <Tooltip>
-                      <TooltipTrigger aria-label="About vector stores">
-                        <Info className="size-3.5 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        Select vector store(s) to use for this LLM API call. You can set up your vector store{" "}
-                        <a href={uiHref("vector-stores")} className="text-info underline">
-                          here
-                        </a>
-                        .
-                      </TooltipContent>
-                    </Tooltip>
+                                    Connect
+                                  </Button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                   </div>
-                  <VectorStoreSelector
-                    value={selectedVectorStores}
-                    onChange={setSelectedVectorStores}
-                    className="mb-4"
-                    accessToken={accessToken || ""}
-                  />
-                </div>
+                )}
+
+                {PLAYGROUND_FIELD_VISIBILITY.vectorStores && (
+                  <div>
+                    <div className="mb-2 flex items-center gap-1 text-sm font-medium text-foreground">
+                      <Database className="mr-1 size-4" aria-hidden="true" /> Vector Store
+                      <Tooltip>
+                        <TooltipTrigger aria-label="About vector stores">
+                          <Info className="size-3.5 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          Select vector store(s) to use for this LLM API call. You can set up your vector store{" "}
+                          <a href={uiHref("vector-stores")} className="text-info underline">
+                            here
+                          </a>
+                          .
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <VectorStoreSelector
+                      value={selectedVectorStores}
+                      onChange={setSelectedVectorStores}
+                      className="mb-4"
+                      accessToken={accessToken || ""}
+                    />
+                  </div>
+                )}
 
                 <div>
                   <div className="mb-2 flex items-center gap-1 text-sm font-medium text-foreground">
@@ -1736,7 +1750,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
                   />
                 </div>
 
-                {canViewPolicies && (
+                {PLAYGROUND_FIELD_VISIBILITY.policies && canViewPolicies && (
                   <div>
                     <div className="mb-2 flex items-center gap-1 text-sm font-medium text-foreground">
                       <Shield className="mr-1 size-4" aria-hidden="true" /> Policies

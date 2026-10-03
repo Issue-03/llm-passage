@@ -2,10 +2,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import EndpointSelector from "./EndpointSelector";
-import { ENDPOINT_OPTIONS } from "./chatConstants";
+import { VISIBLE_ENDPOINT_OPTIONS } from "./chatConstants";
 
 describe("EndpointSelector", () => {
-  Object.values(ENDPOINT_OPTIONS).forEach((endpointType) => {
+  Object.values(VISIBLE_ENDPOINT_OPTIONS).forEach((endpointType) => {
     it(`should render the endpoint selector for ${endpointType.value}`, async () => {
       render(<EndpointSelector endpointType={endpointType.value} onEndpointChange={() => {}} />);
       await waitFor(() => {
@@ -16,7 +16,7 @@ describe("EndpointSelector", () => {
 
   it("should filter and show audio endpoints when user inputs 'audio'", async () => {
     const user = userEvent.setup();
-    render(<EndpointSelector endpointType={ENDPOINT_OPTIONS[0].value} onEndpointChange={() => {}} />);
+    render(<EndpointSelector endpointType={VISIBLE_ENDPOINT_OPTIONS[0].value} onEndpointChange={() => {}} />);
 
     const input = screen.getByRole("combobox");
     await user.click(input);
@@ -25,5 +25,20 @@ describe("EndpointSelector", () => {
 
     expect(await screen.findByText("/v1/audio/speech")).toBeInTheDocument();
     expect(await screen.findByText("/v1/audio/transcriptions")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["mcp", "/mcp-rest/tools/call"],
+    ["a2a", "/v1/a2a/message/send"],
+  ])("does not offer the hidden %s endpoint", async (query, label) => {
+    const user = userEvent.setup();
+    render(<EndpointSelector endpointType={VISIBLE_ENDPOINT_OPTIONS[0].value} onEndpointChange={() => {}} />);
+
+    const input = screen.getByRole("combobox");
+    await user.click(input);
+    await user.clear(input);
+    fireEvent.change(input, { target: { value: query } });
+
+    expect(screen.queryByText(label)).not.toBeInTheDocument();
   });
 });

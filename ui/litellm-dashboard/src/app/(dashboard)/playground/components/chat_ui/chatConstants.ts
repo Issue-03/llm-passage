@@ -47,3 +47,15 @@ export const ENDPOINT_OPTIONS = [
   { value: EndpointType.REALTIME, label: "/v1/realtime" },
   { value: EndpointType.INTERACTIONS, label: "/v1beta/interactions" },
 ];
+
+// Playground options hidden for now. Their selections always start empty, so nothing saved
+// earlier in the session is sent while hidden; flip a flag to bring the field back.
+export const PLAYGROUND_FIELD_VISIBILITY = {
+  mcpServers: false,
+  vectorStores: false,
+  policies: false,
+} as const;
+
+export const HIDDEN_ENDPOINT_TYPES: ReadonlySet<string> = new Set<string>([EndpointType.MCP, EndpointType.A2A_AGENTS]);
+
+export const VISIBLE_ENDPOINT_OPTIONS = ENDPOINT_OPTIONS.filter((option) => !HIDDEN_ENDPOINT_TYPES.has(option.value));

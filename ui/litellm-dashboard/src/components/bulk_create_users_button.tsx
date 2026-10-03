@@ -533,7 +533,7 @@ const BulkCreateUsersButton: React.FC<BulkCreateUsersProps> = ({
             {parsedData.length === 0 ? (
               <div className="mb-6">
                 <div className="flex items-center mb-4">
-                  <div className="w-8 h-8 rounded-full bg-info text-info-foreground flex items-center justify-center mr-3">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center mr-3">
                     1
                   </div>
                   <h3 className="text-lg font-medium">Download and fill the template</h3>
@@ -614,7 +614,7 @@ const BulkCreateUsersButton: React.FC<BulkCreateUsersProps> = ({
                 </div>
 
                 <div className="flex items-center mb-4">
-                  <div className="w-8 h-8 rounded-full bg-info text-info-foreground flex items-center justify-center mr-3">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center mr-3">
                     2
                   </div>
                   <h3 className="text-lg font-medium">Upload your completed CSV</h3>
@@ -656,7 +656,7 @@ const BulkCreateUsersButton: React.FC<BulkCreateUsersProps> = ({
                         !csvStructureError && (
                           <div className="mt-3 flex items-center">
                             <div className="w-full bg-border rounded-full h-1.5">
-                              <div className="bg-info h-1.5 rounded-full w-full animate-pulse"></div>
+                              <div className="bg-primary h-1.5 rounded-full w-full animate-pulse"></div>
                             </div>
                             <span className="ml-2 text-xs text-info">Processing...</span>
                           </div>
@@ -709,7 +709,7 @@ const BulkCreateUsersButton: React.FC<BulkCreateUsersProps> = ({
             ) : (
               <div className="mb-6">
                 <div className="flex items-center mb-4">
-                  <div className="w-8 h-8 rounded-full bg-info text-info-foreground flex items-center justify-center mr-3">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center mr-3">
                     3
                   </div>
                   <h3 className="text-lg font-medium">

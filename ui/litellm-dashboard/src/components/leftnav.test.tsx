@@ -104,8 +104,11 @@ const placementsOf = (page: string): string[] =>
   ]);
 
 describe("Sidebar (leftnav)", () => {
+  // Show every section so role/capability gating is tested independently of what the app hides.
   const defaultProps = {
     collapsed: false,
+    hiddenGroups: new Set<string>(),
+    hiddenItems: new Set<string>(),
   };
 
   afterEach(() => {
@@ -113,6 +116,35 @@ describe("Sidebar (leftnav)", () => {
     mockUseOrganizations.mockReset();
     mockUseThemeImpl = unbrandedTheme;
     navState.pathname = "/ui/api-keys";
+  });
+
+  it("hides the trimmed sections and pages by default", () => {
+    renderWithProviders(<Sidebar collapsed={false} />);
+
+    for (const label of ["Virtual Keys", "Playground", "Models + Endpoints", "Guardrails", "Teams", "Internal Users"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    for (const label of [
+      "Agentic",
+      "MCP Servers",
+      "Skills",
+      "Policies",
+      "Tools",
+      "Usage",
+      "Logs",
+      "Cost Optimization",
+      "Projects",
+      "Organizations",
+      "Access Groups",
+      "Budgets",
+      "API Reference",
+      "AI Hub",
+      "Response Cache",
+      "Experimental",
+      "Settings",
+    ]) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+    }
   });
 
   it("should link the logo to the UI home route rather than the proxy origin", () => {

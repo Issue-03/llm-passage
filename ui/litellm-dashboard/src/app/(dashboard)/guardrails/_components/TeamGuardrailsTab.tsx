@@ -274,7 +274,7 @@ function Toggle({
       aria-checked={enabled}
       disabled={disabled}
       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-1 ${
-        enabled ? "bg-info" : "bg-muted"
+        enabled ? "bg-primary" : "bg-muted"
       } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
     >
       <span
@@ -1020,7 +1020,7 @@ export function TeamGuardrailsTab({ accessToken }: TeamGuardrailsTabProps) {
           <button
             type="button"
             onClick={() => setIsSubmitModalOpen(true)}
-            className="ml-auto flex items-center gap-2 bg-info hover:bg-info/80 text-info-foreground text-sm font-medium px-4 py-2 rounded-md transition-colors"
+            className="ml-auto flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-md transition-colors"
           >
             <PlusIcon className="h-4 w-4" />
             Add Guardrail

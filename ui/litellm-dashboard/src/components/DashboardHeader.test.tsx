@@ -44,7 +44,7 @@ describe("DashboardHeader breadcrumb", () => {
 
   it("roots the breadcrumb in the AI Gateway selector (with a Chat option) and drops the static section crumb when the selector is available", async () => {
     state.enableChatUI = true;
-    render(<DashboardHeader />);
+    render(<DashboardHeader showViewSwitcher />);
 
     expect(screen.getByText("Logs")).toBeInTheDocument();
     expect(screen.queryByText("Observability")).not.toBeInTheDocument();
@@ -57,11 +57,19 @@ describe("DashboardHeader breadcrumb", () => {
   });
 
   it("keeps the AI Gateway selector at the root even when there is nothing to switch to (discovery)", () => {
-    render(<DashboardHeader />);
+    render(<DashboardHeader showViewSwitcher />);
 
     expect(screen.getByRole("button", { name: /AI Gateway/i })).toBeInTheDocument();
     expect(screen.getByText("Logs")).toBeInTheDocument();
     expect(screen.queryByText("Observability")).not.toBeInTheDocument();
+  });
+
+  it("hides the AI Gateway app switcher by default and shows only the page title", () => {
+    state.enableChatUI = true;
+    render(<DashboardHeader />);
+
+    expect(screen.getByText("Logs")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /AI Gateway/i })).not.toBeInTheDocument();
   });
 
   it("leaves docs, blog, community links and notifications out of the toolbar", () => {

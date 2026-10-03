@@ -144,7 +144,7 @@ const createEmptyToolPermissionConfig = (): ToolPermissionConfig => ({
 });
 
 const getStepIndicatorClass = (isDone: boolean, isCurrent: boolean): string => {
-  if (isDone) return "bg-info text-info-foreground";
+  if (isDone) return "bg-primary text-primary-foreground";
   if (isCurrent) return "bg-background text-info border-2 border-info";
   return "bg-muted text-muted-foreground border border-border";
 };
@@ -1126,7 +1126,7 @@ const AddGuardrailForm: React.FC<AddGuardrailFormProps> = ({ visible, onClose, a
                         >
                           {isDone ? "\u2713" : index + 1}
                         </div>
-                        {!isLast && <div className={`min-h-4 w-px flex-1 ${isDone ? "bg-info" : "bg-border"}`} />}
+                        {!isLast && <div className={`min-h-4 w-px flex-1 ${isDone ? "bg-primary" : "bg-border"}`} />}
                       </div>
 
                       {/* Step content */}

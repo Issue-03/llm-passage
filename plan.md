@@ -153,7 +153,7 @@ In `ui/litellm-dashboard/src` there are about 4,600 mentions of "litellm" across
 - The UI works the same as in the baseline: login, keys, models, teams, spend, playground.
 - Committed.
 
-### Status (2026-10-01): done except a click-through check
+### Status: done (commit `ada1ef5`, pushed 2026-10-01; you clicked through on 2026-10-03)
 
 - **Text:** 198 source lines in 94 files, plus 88 test lines, rebranded. The rules live in the script `rebrand_ui.py` (session scratchpad), in this order:
   - `🚅 LiteLLM` → `EmbRouter`
@@ -189,12 +189,74 @@ In `ui/litellm-dashboard/src` there are about 4,600 mentions of "litellm" across
 
 Goal: a smaller admin UI with only the pages you use. The backend endpoints stay in place, so nothing breaks.
 
-1. **List the pages.** I'll produce a list of every left-nav item and its route (from `src/components/leftnav.tsx` and `src/app/(dashboard)/`) so you can mark each one keep / hide / remove.
-2. **Hide first.** Remove the nav entry and redirect the route. This is cheap and easy to undo.
-3. **Remove later.** Once a hidden page has gone unused for a while, delete its route folder and components. Then run `npm run knip` to find leftover unused code.
-4. **After each batch:** lint, unit tests, build, click through, commit.
+**Two kinds of change:**
+- **Removed:** the code is deleted. Used for things that are LiteLLM-specific or useless here.
+- **Hidden:** the code stays and a single setting hides it. Used for features you may want back later; each change below says where its switch lives. Hidden pages still open if you type their URL.
 
-Likely candidates to hide (you decide): guardrails garden, MCP servers, agents, vector stores, prompt management, batches and files, audit logs (they need enterprise anyway), onboarding and "what's new" banners, the model hub, and admin settings for enterprise-only features.
+After each batch: tests for the touched files (`LANG=en_US.UTF-8`), lint, build, copy into `litellm/proxy/_experimental/out/`, then you click through.
+
+### Removed (commit `c2afca9`, pushed 2026-10-03)
+
+| Area | What | Where |
+|---|---|---|
+| Top bar (`DashboardHeader.tsx`) and older navbar (`navbar.tsx`) | Docs link, Blog dropdown, Slack and GitHub buttons, notifications bell | the components themselves are deleted from `components/Navbar/` |
+| Sidebar header and both account menus | `v1.105.0` version badge (linked to LiteLLM release notes) | `leftnav.tsx`, `SidebarAccountMenu.tsx`, `UserDropdown.tsx` |
+| Account menus | Tier (Standard/Premium), the 🌴 bouncing icon, and the switches Hide New Feature Indicators, Hide All Prompts, Hide Blog Posts, Hide Bouncing Icon and Hide LiteAdmin | `SidebarAccountMenu.tsx`, `UserDropdown.tsx`; the hooks behind the switches are deleted |
+| Whole UI | every Beta / New tag (sidebar, Models tabs, chat MCP panel, Create Key agent option, "[BETA]" settings labels, "(beta)" dark-mode tooltip, "MongoDB (BETA)") | the `BetaBadge` component is deleted |
+| Whole UI | LiteAdmin AI assistant | `components/liteadmin/` deleted, no longer mounted in `(dashboard)/layout.tsx` |
+| Sidebar | Learning Resources (external link to `models.litellm.ai/cookbook`) | `leftnav.tsx`, `page_metadata.ts` |
+| Policies page | "Learn more in the documentation ->" (Templates and Policies tabs) and "Learn more about attachments ->" | `policies/_components/index.tsx` |
+| Cost Optimization page | the "This is an experimental dashboard / Join the discussion" box (all 4 tabs) | `CostOptimizationView.tsx` |
+
+27 files deleted, including the dead components and hooks and their tests. The affected tests were updated.
+
+### Removed after `c2afca9` (not committed yet)
+
+- **Models + Endpoints page:** the "Help shape cost optimization / Share Feedback" banner (it linked to a LiteLLM GitHub discussion). The component `molecules/cost_optimization_feedback_banner.tsx` and its test are deleted.
+- **Test fixes:** two tests still expected old text the commits had already changed: "Auto-Routers Beta" on the Models tabs (from `c2afca9`) and the "LiteLLM Parameters" button on agents (from `ada1ef5`). Both are fixed. A wider run of every test in the folders touched since the baseline now passes: 452 files, 6,484 tests.
+
+### Hidden (done 2026-10-04, not committed yet)
+
+**Sidebar:** these lists sit at the top of `ui/litellm-dashboard/src/components/leftnav.tsx`; delete an entry to bring it back.
+- `HIDDEN_GROUPS`: three whole sections:
+  - **Observability** (Usage, Model Leaderboard, Cost Optimization, Logs, Guardrails Monitor)
+  - **Developer Tools** (API Reference, AI Hub, Response Cache, Experimental)
+  - **Settings** (Router Settings, Logging & Alerts, Admin Settings, Cost Tracking, UI Theme)
+- `HIDDEN_ITEMS`:
+  - AI Gateway: Agentic, MCP Servers, Skills, Policies, Tools
+  - Access Control: Projects, Organizations, Access Groups, Budgets
+
+**What's still in the sidebar:**
+- AI Gateway: Virtual Keys, Playground, Models + Endpoints, Guardrails
+- Access Control: Teams, Internal Users
+
+`Sidebar` accepts `hiddenGroups` / `hiddenItems` props. The sidebar tests pass empty sets so the role and permission rules are still tested against the full menu, and a separate test checks the default hiding.
+
+**Top bar app switcher** (AI Gateway / Chat dropdown): hidden through `showViewSwitcher = false` in `DashboardHeader.tsx`, so the breadcrumb shows only the page name. The Chat page's own navbar keeps the switcher, so you can get back if Chat is ever enabled.
+
+**Playground** (`playground/components/chat_ui/chatConstants.ts`):
+- `PLAYGROUND_FIELD_VISIBILITY`: MCP Servers, Vector Store and Policies fields hidden; Guardrails kept.
+- `HIDDEN_ENDPOINT_TYPES`: the `/mcp-rest/tools/call` (MCP) and `/v1/a2a/message/send` (agents) endpoints are hidden.
+- **Safeguards:**
+  - a hidden field's selection always starts empty, ignoring anything saved in the session, so it is never sent in requests or "Get Code" snippets (for MCP this includes the per-server tool limits)
+  - a saved MCP or A2A endpoint falls back to `/v1/chat/completions`
+- The two MCP-picker tests use `it.skipIf(!PLAYGROUND_FIELD_VISIBILITY.mcpServers)`, so they come back on when the field is shown.
+
+### Recolored (not committed yet)
+
+23 elements were styled with the theme's **info** color (LiteLLM's blue) instead of **primary**, so the Phase 1 theme change missed them. They now use the brand green:
+- **Buttons:** Add Guardrail, plus Playground chat/compliance, MCP submissions and the credential modal
+- **Controls:** the guardrail toggle's "on" state, checkboxes, active tab underlines
+- **Progress markers:** step circles and dots, progress bars
+- **Chat:** the user's chat bubbles
+
+Info-blue was **kept** where it means something rather than being branding: "running"/"reachable" status dots, loading pulses, trace timeline bars, the personal-vs-team marker, and the light-blue info notice boxes.
+
+### Still to decide
+
+- Policies → Attachments still shows an "Enterprise Feature Notice" box.
+- The ✓ in the app switcher uses info-blue (it only matters if the switcher comes back).
+- Later: delete the code for hidden pages that stay unused, then run `npm run knip` for leftovers.
 
 ---
 
@@ -249,6 +311,6 @@ After Phase 3, merging upstream LiteLLM changes is basically impossible. Securit
 ## Open questions
 
 1. **Name casing:** display name "EmbRouter"; package, CLI and DB `embrouter`; env vars `EMBROUTER_*`. OK?
-2. **Logo:** do you have logo files (light and dark) and a favicon, or should I make a text placeholder?
-3. **Docs links (Phase 3):** remove them, or point them at your own docs site? Still open.
+2. **Logo:** answered. The EMB Global logo is used as is (Phase 1).
+3. **Docs links (Phase 3):** remove them, or point them at your own docs site? Still open. The two Policies-page links are already removed (Phase 2).
 4. **Phase 3 database:** OK to squash the migrations and start with a fresh local database?

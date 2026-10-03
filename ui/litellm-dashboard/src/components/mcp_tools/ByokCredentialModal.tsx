@@ -84,8 +84,8 @@ export const ByokCredentialModal: React.FC<ByokCredentialModalProps> = ({ server
               <div />
             )}
             <div className="flex items-center gap-1.5">
-              <div className={`w-2 h-2 rounded-full ${step === 1 ? "bg-info" : "bg-border"}`} />
-              <div className={`w-2 h-2 rounded-full ${step === 2 ? "bg-info" : "bg-border"}`} />
+              <div className={`w-2 h-2 rounded-full ${step === 1 ? "bg-primary" : "bg-border"}`} />
+              <div className={`w-2 h-2 rounded-full ${step === 2 ? "bg-primary" : "bg-border"}`} />
             </div>
             <button onClick={handleClose} className="text-muted-foreground hover:text-foreground">
               <X className="size-4" />
@@ -223,7 +223,7 @@ export const ByokCredentialModal: React.FC<ByokCredentialModalProps> = ({ server
               <button
                 onClick={handleAuthorize}
                 disabled={loading}
-                className="w-full bg-info hover:bg-info/80 disabled:opacity-60 text-info-foreground font-medium py-3 px-6 rounded-xl flex items-center justify-center gap-2 transition-colors"
+                className="w-full bg-primary hover:bg-primary/90 disabled:opacity-60 text-primary-foreground font-medium py-3 px-6 rounded-xl flex items-center justify-center gap-2 transition-colors"
               >
                 <Lock className="size-4" /> Connect &amp; Authorize
               </button>
