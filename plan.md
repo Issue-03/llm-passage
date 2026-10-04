@@ -286,6 +286,19 @@ Tests added or updated for the header account menu, the Agent Builder tab, the s
 - Links on visible pages that point at hidden pages (for example "view logs") now land on the 404.
 - Not covered: the separate apps outside the dashboard (`/ui/chat`, `/ui/model_hub`, `/ui/model_hub_table`, `/ui/mcp`, `/ui/connect`).
 
+### Proxy startup output (2026-10-04)
+
+- `proxy_server.py` no longer prints the LITELLM ASCII banner or the feedback box ("Thank you for using LiteLLM! - Krrish & Ishaan", "Give Feedback / Get Help" links) at startup. `generate_feedback_box()`, its messages and the `LITELLM_DONT_SHOW_FEEDBACK_BOX` check are deleted.
+- `common_utils/banner.py` stays for now: the `litellm-proxy` client CLI and the CLI SSO success page still use `LITELLM_BANNER` (rename in Phase 3).
+- Still in the log until Phase 3: the `LiteLLM Proxy` logger name and "LiteLLM: Proxy initialized with Config" lines.
+- The DB migration progress lines from `litellm_proxy_extras` ("Preparing the Prisma CLI toolchain", "Found 192 migrations", "prisma migrate deploy stdout ...") are now debug output: `litellm_proxy_extras/_logging.py` defaults to `WARNING` instead of `INFO`. Set `LITELLM_LOG=INFO` (or `DEBUG`) to see them; warnings and errors from failed or stuck migrations still print.
+
+### `embrouter` start command (2026-10-04)
+
+- `pyproject.toml` `[project.scripts]` has `embrouter = "litellm:run_server"` next to `litellm`, so the proxy starts with `uv run --env-file .env embrouter --config config.yaml --port 4000` (README and `config.example.yaml` updated). Needs a `uv sync` once to install the command.
+- `litellm` (and `lite`, `litellm-proxy`) still work; Phase 3 removes or renames them.
+- `trusted_proxy_ranges: []` added to `general_settings` in `config.example.yaml`, so the startup warning about it is gone (clients connect directly).
+
 ### Still to decide
 
 - Policies → Attachments still shows an "Enterprise Feature Notice" box.
@@ -318,7 +331,11 @@ Done as a separate project once the UI is settled. Scale: about 90,000 mentions 
    - Rename the 87 `LiteLLM_*` Prisma models to `EmbRouter_*` in all 3 copies of `schema.prisma` and in the raw SQL (65 Python files).
    - Squash the 193 migrations into one starting migration (`prisma migrate diff --from-empty`).
    - This needs a **fresh local database**, so drop the Phase 0–2 dev database.
-5. **Regenerate** `uv.lock` and the Prisma client, rebuild the UI, and update `docker-compose.yml`, `.env.example`, the Makefile and the README.
+5. **Startup and log output:**
+   - Decide the final log level for the migration progress lines (made debug-only in Phase 2; `LITELLM_LOG` becomes `EMBROUTER_LOG`), and rename the `litellm_proxy_extras` / `LiteLLM Proxy` logger names.
+   - Rename the Postgres database from `litellm` to `embrouter` (`DATABASE_URL`, `docker-compose.yml`), together with the fresh database above.
+   - Remove the `litellm` start command, keeping `embrouter`; rename `lite` / `litellm-proxy`.
+6. **Regenerate** `uv.lock` and the Prisma client, rebuild the UI, and update `docker-compose.yml`, `.env.example`, the Makefile and the README.
 
 **Done when:**
 - `grep -ri litellm` finds nothing outside `LICENSE` and `NOTICE`.

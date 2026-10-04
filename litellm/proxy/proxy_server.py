@@ -220,45 +220,6 @@ try:
 except ImportError as e:
     raise ImportError(f"Missing dependency {e}. Run `pip install 'litellm[proxy]'`")
 
-list_of_messages: Final = [
-    "'The thing I wish you improved is...'",
-    "'A feature I really want is...'",
-    "'The worst thing about this product is...'",
-    "'This product would be better if...'",
-    "'I don't like how this works...'",
-    "'It would help me if you could add...'",
-    "'This feature doesn't meet my needs because...'",
-    "'I get frustrated when the product...'",
-]
-
-
-def generate_feedback_box():
-    box_width: Final = 60
-
-    # Select a random message
-    message: Final = random.choice(list_of_messages)
-
-    print()  # noqa: T201
-    print("\033[1;37m" + "#" + "-" * box_width + "#\033[0m")  # noqa: T201
-    print("\033[1;37m" + "#" + " " * box_width + "#\033[0m")  # noqa: T201
-    print("\033[1;37m" + f"# {message:^59} #\033[0m")  # noqa: T201
-    print(  # noqa: T201
-        "\033[1;37m" + "# {:^59} #\033[0m".format("https://github.com/BerriAI/litellm/issues/new")
-    )
-    print("\033[1;37m" + "#" + " " * box_width + "#\033[0m")  # noqa: T201
-    print("\033[1;37m" + "#" + "-" * box_width + "#\033[0m")  # noqa: T201
-    print()  # noqa: T201
-    print(" Thank you for using LiteLLM! - Krrish & Ishaan")  # noqa: T201
-    print()  # noqa: T201
-    print()  # noqa: T201
-    print()  # noqa: T201
-    print(  # noqa: T201
-        "\033[1;31mGive Feedback / Get Help: https://github.com/BerriAI/litellm/issues/new\033[0m"
-    )
-    print()  # noqa: T201
-    print()  # noqa: T201
-
-
 import contextlib
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -9084,11 +9045,6 @@ async def initialize(
         master_key, \
         user_custom_auth, \
         prisma_client
-    from litellm.proxy.common_utils.banner import show_banner
-
-    show_banner()
-    if os.getenv("LITELLM_DONT_SHOW_FEEDBACK_BOX", "").lower() != "true":
-        generate_feedback_box()
     user_model = model
     user_debug = debug
     if debug is True:  # this needs to be first, so users can see Router init debugg

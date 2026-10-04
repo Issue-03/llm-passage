@@ -28,10 +28,14 @@ def test_litellm_log_error_silences_extras_info_lines(monkeypatch, fresh_extras_
     assert reloaded.isEnabledFor(logging.ERROR) is True
 
 
-@pytest.mark.parametrize("litellm_log", [None, "info", "DEBUG"])
-def test_unset_or_verbose_litellm_log_keeps_extras_info_lines(monkeypatch, fresh_extras_logger, litellm_log):
-    if litellm_log is None:
-        monkeypatch.delenv("LITELLM_LOG", raising=False)
-    else:
-        monkeypatch.setenv("LITELLM_LOG", litellm_log)
+def test_unset_litellm_log_hides_extras_info_lines_but_keeps_warnings(monkeypatch, fresh_extras_logger):
+    monkeypatch.delenv("LITELLM_LOG", raising=False)
+    reloaded = importlib.reload(extras_logging).logger
+    assert reloaded.isEnabledFor(logging.INFO) is False
+    assert reloaded.isEnabledFor(logging.WARNING) is True
+
+
+@pytest.mark.parametrize("litellm_log", ["info", "DEBUG"])
+def test_verbose_litellm_log_shows_extras_info_lines(monkeypatch, fresh_extras_logger, litellm_log):
+    monkeypatch.setenv("LITELLM_LOG", litellm_log)
     assert importlib.reload(extras_logging).logger.isEnabledFor(logging.INFO) is True

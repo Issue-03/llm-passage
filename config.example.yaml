@@ -1,4 +1,4 @@
-# Copy to config.yaml (gitignored), then: uv run --env-file .env litellm --config config.yaml --port 4000
+# Copy to config.yaml (gitignored), then: uv run --env-file .env embrouter --config config.yaml --port 4000
 model_list:
   # Offline test model: returns a canned reply, no provider key needed.
   - model_name: mock-gpt
@@ -16,3 +16,6 @@ model_list:
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
   database_url: os.environ/DATABASE_URL
+  # Clients connect directly (no load balancer in front), so the UI login
+  # rate limit can also count failed sign-ins per source address.
+  trusted_proxy_ranges: []

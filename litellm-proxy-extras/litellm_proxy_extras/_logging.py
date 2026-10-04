@@ -40,4 +40,6 @@ if not logger.handlers:
             logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         )
     logger.addHandler(handler)
-    logger.setLevel(os.getenv("LITELLM_LOG", "INFO").upper())
+    # Routine migration progress is debug output: set LITELLM_LOG=INFO or DEBUG to see it.
+    # Warnings and errors (failed or stuck migrations) always print.
+    logger.setLevel(os.getenv("LITELLM_LOG", "WARNING").upper())

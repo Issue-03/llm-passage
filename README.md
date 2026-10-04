@@ -30,10 +30,10 @@ uv run prisma generate --schema=./schema.prisma
 
 ```bash
 docker compose up -d db              # if it isn't already running
-uv run --env-file .env litellm --config config.yaml --port 4000
+uv run --env-file .env embrouter --config config.yaml --port 4000
 ```
 
-On first start the proxy applies the DB migrations, which takes about 15 seconds.
+On first start the proxy applies the DB migrations, which takes about 15 seconds. (`embrouter` is the new name for the start command; the old `litellm` command still works until the Phase 3 code rename.)
 
 - **API:** http://localhost:4000 (OpenAI-compatible, e.g. `/v1/chat/completions`)
 - **Admin UI:** http://localhost:4000/ui. Log in with username `admin` and your `LITELLM_MASTER_KEY` as the password.
