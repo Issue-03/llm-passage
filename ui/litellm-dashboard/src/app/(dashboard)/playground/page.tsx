@@ -15,9 +15,10 @@ const PLAYGROUND_TABS = ["chat", "compare", "compliance", "agent-builder"] as co
 type PlaygroundTab = (typeof PLAYGROUND_TABS)[number];
 
 // Tabs hidden from the EmbRouter UI. Remove an entry to bring the tab back.
-const HIDDEN_PLAYGROUND_TABS: ReadonlySet<PlaygroundTab> = new Set<PlaygroundTab>(["agent-builder"]);
+const HIDDEN_PLAYGROUND_TABS: ReadonlySet<PlaygroundTab> = new Set<PlaygroundTab>(["agent-builder", "compliance"]);
 const VISIBLE_PLAYGROUND_TABS = PLAYGROUND_TABS.filter((tab) => !HIDDEN_PLAYGROUND_TABS.has(tab));
 const showAgentBuilder = !HIDDEN_PLAYGROUND_TABS.has("agent-builder");
+const showCompliance = !HIDDEN_PLAYGROUND_TABS.has("compliance");
 
 interface ProxySettings {
   PROXY_BASE_URL?: string;
@@ -70,9 +71,11 @@ export default function PlaygroundPage() {
           <TabsTrigger value="compare" className="flex-none">
             Compare
           </TabsTrigger>
-          <TabsTrigger value="compliance" className="flex-none">
-            Compliance
-          </TabsTrigger>
+          {showCompliance && (
+            <TabsTrigger value="compliance" className="flex-none">
+              Compliance
+            </TabsTrigger>
+          )}
           {showAgentBuilder && (
             <TabsTrigger value="agent-builder" className="flex-none">
               Agent Builder (Experimental)
@@ -96,9 +99,11 @@ export default function PlaygroundPage() {
         <TabsContent value="compare" className="mt-0 h-full data-hidden:hidden" keepMounted>
           <CompareUI accessToken={accessToken} disabledPersonalKeyCreation={disabledPersonalKeyCreation} />
         </TabsContent>
-        <TabsContent value="compliance" className="mt-0 h-full data-hidden:hidden" keepMounted>
-          <ComplianceUI accessToken={accessToken} disabledPersonalKeyCreation={disabledPersonalKeyCreation} />
-        </TabsContent>
+        {showCompliance && (
+          <TabsContent value="compliance" className="mt-0 h-full data-hidden:hidden" keepMounted>
+            <ComplianceUI accessToken={accessToken} disabledPersonalKeyCreation={disabledPersonalKeyCreation} />
+          </TabsContent>
+        )}
         {showAgentBuilder && (
           <TabsContent value="agent-builder" className="mt-0 h-full data-hidden:hidden" keepMounted>
             <DeprecationBanner featureName="The Playground's Agent Builder" />

@@ -82,11 +82,14 @@ describe("PlaygroundPage ?tab= deep link", () => {
     expect(screen.getByRole("tab", { name: "Chat" })).toHaveAttribute("aria-selected", "false");
   });
 
-  it("hides the Agent Builder tab and ignores ?tab=agent-builder", () => {
-    renderWithProviders(<PlaygroundPage />, { searchParams: { tab: "agent-builder" } });
+  it.each([
+    ["agent-builder", /agent builder/i],
+    ["compliance", /compliance/i],
+  ])("hides the %s tab and ignores ?tab= for it", (tab, name) => {
+    renderWithProviders(<PlaygroundPage />, { searchParams: { tab } });
 
-    expect(screen.queryByRole("tab", { name: /agent builder/i })).not.toBeInTheDocument();
-    expect(screen.queryByTestId("agent-builder")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name })).not.toBeInTheDocument();
+    expect(screen.queryByTestId(tab === "compliance" ? "compliance-ui" : "agent-builder")).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Chat" })).toHaveAttribute("aria-selected", "true");
   });
 
@@ -101,10 +104,10 @@ describe("PlaygroundPage ?tab= deep link", () => {
     const onUrlUpdate = vi.fn<OnUrlUpdateFunction>();
     renderWithProviders(<PlaygroundPage />, { onUrlUpdate });
 
-    await user.click(screen.getByRole("tab", { name: "Compliance" }));
+    await user.click(screen.getByRole("tab", { name: "Compare" }));
 
-    expect(await screen.findByRole("tab", { name: "Compliance", selected: true })).toBeInTheDocument();
-    await waitFor(() => expect(lastUrlUpdate(onUrlUpdate)?.searchParams.get("tab")).toBe("compliance"));
+    expect(await screen.findByRole("tab", { name: "Compare", selected: true })).toBeInTheDocument();
+    await waitFor(() => expect(lastUrlUpdate(onUrlUpdate)?.searchParams.get("tab")).toBe("compare"));
     expect(lastUrlUpdate(onUrlUpdate)?.options.history).toBe("replace");
   });
 });

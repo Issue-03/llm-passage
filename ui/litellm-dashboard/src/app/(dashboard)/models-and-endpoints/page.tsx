@@ -24,6 +24,7 @@ import AccessGroupBudgetsPanel from "@/app/(dashboard)/models-and-endpoints/pane
 import PriceDataPanel from "@/app/(dashboard)/models-and-endpoints/panels/PriceDataPanel";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { HIDDEN_MODEL_TABS } from "./hiddenModelTabs";
 
 type ModelTabSlug =
   | "add"
@@ -105,19 +106,22 @@ export default function ModelsAndEndpointsPage() {
     ) !== "forbidden";
 
   const visibleSlugs = useMemo<Array<"" | ModelTabSlug>>(
-    () => [
-      "",
-      ...(canCreate ? (["add"] as const) : []),
-      ...(isAdmin || canViewAutoRouters ? (["auto-routers"] as const) : []),
-      // effectiveSessionRole reports proxy_admin_viewer as "Admin", so isAdmin alone would show a
-      // viewer these write-only panels; only the raw-role isViewOnly separates them. Health Status
-      // stays: it is the bucket's one read view, and viewers keep read parity with admins.
-      ...(isAdmin && !isViewOnly ? (["llm-credentials", "pass-through"] as const) : []),
-      ...(isAdmin ? (["health"] as const) : []),
-      ...(isAdmin && !isViewOnly
-        ? (["retry-settings", "model-group-alias", "access-group-budgets", "price-data"] as const)
-        : []),
-    ],
+    () =>
+      (
+        [
+          "",
+          ...(canCreate ? (["add"] as const) : []),
+          ...(isAdmin || canViewAutoRouters ? (["auto-routers"] as const) : []),
+          // effectiveSessionRole reports proxy_admin_viewer as "Admin", so isAdmin alone would show a
+          // viewer these write-only panels; only the raw-role isViewOnly separates them. Health Status
+          // stays: it is the bucket's one read view, and viewers keep read parity with admins.
+          ...(isAdmin && !isViewOnly ? (["llm-credentials", "pass-through"] as const) : []),
+          ...(isAdmin ? (["health"] as const) : []),
+          ...(isAdmin && !isViewOnly
+            ? (["retry-settings", "model-group-alias", "access-group-budgets", "price-data"] as const)
+            : []),
+        ] as Array<"" | ModelTabSlug>
+      ).filter((slug) => !HIDDEN_MODEL_TABS.has(slug)),
     [canCreate, canViewAutoRouters, isAdmin, isViewOnly],
   );
 

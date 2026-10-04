@@ -266,7 +266,7 @@ Mostly theme values, so the whole UI follows without touching page layouts.
 - **Sidebar toggle:** panel icons → hamburger (`Menu`), same icon in both states.
 - **Selected sidebar item** (`shared/Sidebar.tsx`): grey fill + left green bar → light green pill with green text and icon, semibold; the keyboard focus ring is now a thin inset line.
 - **Account menu** moved from the sidebar footer to the top-right of the top bar (`DashboardHeader.tsx`), via `placement="header"` on `SidebarAccountMenu` (compact avatar + name trigger, opens downward). The sidebar footer now shows only the admin usage card.
-- **Playground:** the Agent Builder (Experimental) tab is hidden through `HIDDEN_PLAYGROUND_TABS` in `playground/page.tsx`; `?tab=agent-builder` falls back to Chat.
+- **Playground:** the Agent Builder (Experimental) tab is hidden through `HIDDEN_PLAYGROUND_TABS` in `playground/page.tsx`; `?tab=agent-builder` falls back to Chat. The Compliance tab was added to the same list later (after `fe646cf`), so the Playground shows only Chat and Compare.
 
 Tests added or updated for the header account menu, the Agent Builder tab, the sidebar active style and the breadcrumb names.
 
@@ -315,6 +315,10 @@ Hidden through `ADD_MODEL_FIELD_VISIBILITY` in `ui/litellm-dashboard/src/compone
 - `guardrails`: Advanced Settings → "Guardrails" (the Guardrails page is hidden).
 
 The model **edit** form (`ModelInfoEditForm.tsx`) still shows its own Guardrails / knowledge-base fields. Team-BYOK tests use `skipIf`; new tests check the fields are hidden.
+
+### Models + Endpoints tabs (2026-10-04)
+
+Hidden through `HIDDEN_MODEL_TABS` in `ui/litellm-dashboard/src/app/(dashboard)/models-and-endpoints/hiddenModelTabs.ts` (delete an entry to bring a tab back): Auto-Routers, Pass-Through Endpoints, Model Retry Settings, Model Group Alias, Model Access Group Budgets, Price Data Reload. Left for an admin: Deployed Models, Add Model, LLM Credentials, Health Status. The page tests mock the list as empty so the role rules are still tested on the full tab set; one test checks the default hiding.
 
 ### Still to decide
 

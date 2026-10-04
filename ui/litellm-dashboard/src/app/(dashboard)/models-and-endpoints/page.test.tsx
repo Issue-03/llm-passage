@@ -16,6 +16,14 @@ vi.mock("./panels/ModelGroupAliasPanel", () => ({ default: () => <div data-testi
 vi.mock("./panels/PriceDataPanel", () => ({ default: () => <div data-testid="panel-price" /> }));
 vi.mock("./panels/AccessGroupBudgetsPanel", () => ({ default: () => <div data-testid="panel-budgets" /> }));
 
+// The role and permission tests run against the full tab set; one test checks the default hiding.
+const hiddenTabs = vi.hoisted(() => ({ current: new Set<string>() as ReadonlySet<string> }));
+vi.mock("./hiddenModelTabs", () => ({
+  get HIDDEN_MODEL_TABS() {
+    return hiddenTabs.current;
+  },
+}));
+
 const detailState = { modelId: null as string | null, teamId: null as string | null };
 vi.mock("./detailNavigation", () => ({
   useModelDetailRouting: () => ({ ...detailState, close: vi.fn(), openModel: vi.fn(), openTeam: vi.fn() }),
@@ -71,6 +79,7 @@ describe("ModelsAndEndpointsPage", () => {
   beforeEach(() => {
     detailState.modelId = null;
     detailState.teamId = null;
+    hiddenTabs.current = new Set();
     mockUseAuthorized.mockReturnValue(ADMIN);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (global as any).ResizeObserver = class {
@@ -78,6 +87,14 @@ describe("ModelsAndEndpointsPage", () => {
       unobserve() {}
       disconnect() {}
     };
+  });
+
+  it("hides the trimmed tabs by default", async () => {
+    const actual = await vi.importActual<typeof import("./hiddenModelTabs")>("./hiddenModelTabs");
+    hiddenTabs.current = actual.HIDDEN_MODEL_TABS;
+    renderPage();
+    const tabs = screen.getAllByRole("tab").map((tab) => tab.textContent);
+    expect(tabs).toEqual(["Deployed Models", "Add Model", "LLM Credentials", "Health Status"]);
   });
 
   it("renders the admin tab bar and the Deployed Models panel by default", () => {
