@@ -191,7 +191,7 @@ Goal: a smaller admin UI with only the pages you use. The backend endpoints stay
 
 **Two kinds of change:**
 - **Removed:** the code is deleted. Used for things that are LiteLLM-specific or useless here.
-- **Hidden:** the code stays and a single setting hides it. Used for features you may want back later; each change below says where its switch lives. Hidden pages still open if you type their URL.
+- **Hidden:** the code stays and a single setting hides it. Used for features you may want back later; each change below says where its switch lives. Since 2026-10-04 a hidden page's URL shows a 404 instead of the page (see "Hidden pages show 404").
 
 After each batch: tests for the touched files (`LANG=en_US.UTF-8`), lint, build, copy into `litellm/proxy/_experimental/out/`, then you click through.
 
@@ -269,6 +269,22 @@ Mostly theme values, so the whole UI follows without touching page layouts.
 - **Playground:** the Agent Builder (Experimental) tab is hidden through `HIDDEN_PLAYGROUND_TABS` in `playground/page.tsx`; `?tab=agent-builder` falls back to Chat.
 
 Tests added or updated for the header account menu, the Agent Builder tab, the sidebar active style and the breadcrumb names.
+
+### Removed upstream links on visible pages (2026-10-04)
+
+- **"Need Help?"** links to LiteLLM's GitHub issues: Add Model, Auto Router tab, Add Credential and Reuse Credentials (the buttons stay right-aligned).
+- **"Talk to our team"** (a LiteLLM sales Calendly page) on the Auto Router: View limits popover, exhausted routing choices, and the blocked-allowance alert. `AUTO_ROUTER_CONTACT_URL` / `AutoRouterContactLink` are deleted; the limits and messages themselves stay.
+- **Playground → Code Interpreter:** the "Request support for other providers" link (the OpenAI-only note stays).
+- **Create Key → Logging Settings tooltip:** the `www.litellm.ai/enterprise` link (the note stays).
+- **Kept:** the Azure base-model link to LiteLLM's `model_prices_and_context_window.json`, as a useful reference.
+- **Left for later:** upstream GitHub, `litellm.ai` and `models.litellm.ai` links on hidden pages (Search Tools, Transform Request, Tags, Vector Stores, Guardrails, Organizations, Cost Optimization, the deprecation banner, the Chat app), plus the 181 `docs.litellm.ai` links (Phase 3).
+
+### Hidden pages show 404 (2026-10-04)
+
+- `isHiddenRoute()` in `leftnav.tsx` treats any dashboard URL whose page is not in the visible sidebar as hidden. It is built from the same `HIDDEN_GROUPS` / `HIDDEN_ITEMS` lists, so un-hiding a sidebar entry also makes its URL work again. `change-password` (and the root `/ui/`) always stay reachable.
+- `(dashboard)/layout.tsx` calls Next.js `notFound()` for those URLs, so they show Next's built-in "404 | This page could not be found." page, the same one unknown URLs get. No custom 404 page.
+- Links on visible pages that point at hidden pages (for example "view logs") now land on the 404.
+- Not covered: the separate apps outside the dashboard (`/ui/chat`, `/ui/model_hub`, `/ui/model_hub_table`, `/ui/mcp`, `/ui/connect`).
 
 ### Still to decide
 

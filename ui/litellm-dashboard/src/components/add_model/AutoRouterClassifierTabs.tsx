@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
@@ -22,9 +21,7 @@ import {
   AutoRouterAllowanceLabel,
   AutoRouterAvailabilityContext,
   AutoRouterLimits,
-  AutoRouterContactLink,
   isAllowanceExhausted,
-  AUTO_ROUTER_CONTACT_URL,
 } from "./AutoRouterAvailability";
 
 function ClassifierOption({
@@ -44,7 +41,6 @@ function ClassifierOption({
 }) {
   const state = useContext(AutoRouterAvailabilityContext);
   const allowance = state.data?.allowances.find((entry) => entry.key === feature);
-  const fresh = !state.isPending && !state.isError && !state.isChecking;
   const exhausted = isAllowanceExhausted(allowance);
   return (
     <div className="relative">
@@ -58,18 +54,9 @@ function ClassifierOption({
               unlimited && <span className="shrink-0 text-xs leading-5 text-muted-foreground">Unlimited</span>
             )}
           </span>
-          <span className={`text-xs leading-5 text-muted-foreground ${exhausted ? "pr-28" : ""}`}>{description}</span>
+          <span className="text-xs leading-5 text-muted-foreground">{description}</span>
         </span>
       </DropdownMenuRadioItem>
-      {fresh && exhausted && (
-        <DropdownMenuItem
-          render={<a href={AUTO_ROUTER_CONTACT_URL} target="_blank" rel="noopener noreferrer" />}
-          aria-label={`Talk to our team about ${label}`}
-          className="absolute top-9 right-8 cursor-pointer px-0 py-0 text-xs leading-5 font-medium text-blue-600 focus:text-blue-600 hover:underline dark:text-blue-400 dark:focus:text-blue-400"
-        >
-          Talk to our team
-        </DropdownMenuItem>
-      )}
     </div>
   );
 }
@@ -277,7 +264,6 @@ const AutoRouterClassifierTabs: React.FC<AutoRouterClassifierTabsProps> = ({ val
       {availability.data?.error && !availability.isChecking && (
         <div role="alert" className="space-y-1">
           <p className="text-sm text-destructive">{availability.data.error}</p>
-          <AutoRouterContactLink />
         </div>
       )}
       {availability.isError && (

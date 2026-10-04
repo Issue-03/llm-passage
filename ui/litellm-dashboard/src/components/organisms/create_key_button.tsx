@@ -1661,14 +1661,7 @@ const CreateKey: React.FC<CreateKeyProps> = ({ team, teams, data, addKey, autoOp
                       ) : (
                         <SimpleTooltip
                           className="w-full"
-                          content={
-                            <span>
-                              Key-level logging settings is an enterprise feature, get in touch -
-                              <a href="https://www.litellm.ai/enterprise" target="_blank">
-                                https://www.litellm.ai/enterprise
-                              </a>
-                            </span>
-                          }
+                          content={<span>Key-level logging settings is an enterprise feature.</span>}
                           side="top"
                         >
                           <div style={{ position: "relative" }}>

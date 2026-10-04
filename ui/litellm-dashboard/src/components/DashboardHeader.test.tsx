@@ -6,7 +6,7 @@ const { mockUsePluginMode, mockUseUISettings, state } = vi.hoisted(() => {
   const state = {
     plugins: [] as { name: string; display_name: string; url: string }[],
     enableChatUI: false,
-    pathname: "/ui/logs",
+    pathname: "/ui/teams",
   };
   return {
     state,
@@ -30,7 +30,7 @@ describe("DashboardHeader breadcrumb", () => {
   afterEach(() => {
     state.plugins = [];
     state.enableChatUI = false;
-    state.pathname = "/ui/logs";
+    state.pathname = "/ui/teams";
   });
 
   it("titles the breadcrumb from the current route, not from a sidebar page id", () => {
@@ -57,8 +57,8 @@ describe("DashboardHeader breadcrumb", () => {
     state.enableChatUI = true;
     render(<DashboardHeader showViewSwitcher />);
 
-    expect(screen.getByText("Logs")).toBeInTheDocument();
-    expect(screen.queryByText("Observability")).not.toBeInTheDocument();
+    expect(screen.getByText("Teams")).toBeInTheDocument();
+    expect(screen.queryByText("Teams & Users")).not.toBeInTheDocument();
 
     const selector = screen.getByRole("button", { name: /AI Gateway/i });
     act(() => {
@@ -71,15 +71,15 @@ describe("DashboardHeader breadcrumb", () => {
     render(<DashboardHeader showViewSwitcher />);
 
     expect(screen.getByRole("button", { name: /AI Gateway/i })).toBeInTheDocument();
-    expect(screen.getByText("Logs")).toBeInTheDocument();
-    expect(screen.queryByText("Observability")).not.toBeInTheDocument();
+    expect(screen.getByText("Teams")).toBeInTheDocument();
+    expect(screen.queryByText("Teams & Users")).not.toBeInTheDocument();
   });
 
   it("hides the AI Gateway app switcher by default and shows only the page title", () => {
     state.enableChatUI = true;
     render(<DashboardHeader />);
 
-    expect(screen.getByText("Logs")).toBeInTheDocument();
+    expect(screen.getByText("Teams")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /AI Gateway/i })).not.toBeInTheDocument();
   });
 

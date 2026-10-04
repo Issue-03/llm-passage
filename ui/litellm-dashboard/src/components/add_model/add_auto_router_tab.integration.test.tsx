@@ -298,7 +298,7 @@ describe("AddAutoRouterTab", () => {
     fireEvent.change(screen.getByLabelText("Definition for tier 1"), { target: { value: "Only short requests" } });
     expect(await screen.findByRole("alert")).toHaveTextContent(blocked);
     expect(screen.getByRole("button", { name: "Add Auto Router" })).toBeDisabled();
-    expect(within(screen.getByRole("alert")).getByRole("link", { name: "Talk to our team" })).toBeVisible();
+    expect(within(screen.getByRole("alert")).queryByRole("link")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Restore defaults" }));
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
     expect(screen.getByRole("radio", { name: "Jev" })).toBeChecked();

@@ -14,8 +14,6 @@ interface CodeInterpreterToolProps {
   disabled?: boolean;
 }
 
-const GITHUB_FEATURE_REQUEST_URL = "https://github.com/BerriAI/litellm/issues/new?template=feature_request.yml";
-
 const isOpenAIModel = (model: string): boolean => {
   if (!model) return false;
   const lowerModel = model.toLowerCase();
@@ -74,15 +72,7 @@ const CodeInterpreterTool: React.FC<CodeInterpreterToolProps> = ({
           <div className="flex items-start gap-2">
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
             <div className="text-xs text-muted-foreground">
-              <span>Code Interpreter is currently only supported for OpenAI models. </span>
-              <a
-                href={GITHUB_FEATURE_REQUEST_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-info hover:text-info/80 underline"
-              >
-                Request support for other providers
-              </a>
+              <span>Code Interpreter is currently only supported for OpenAI models.</span>
             </div>
           </div>
         </div>

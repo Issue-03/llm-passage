@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Layout from "./layout";
 
-const { replaceMock } = vi.hoisted(() => ({ replaceMock: vi.fn() }));
+const { replaceMock, notFoundMock } = vi.hoisted(() => ({ replaceMock: vi.fn(), notFoundMock: vi.fn() }));
 
 let searchParamsValue = new URLSearchParams();
 
@@ -12,6 +12,7 @@ vi.mock("next/navigation", () => ({
   useRouter: vi.fn(() => ({ push: vi.fn(), replace: replaceMock })),
   useSearchParams: vi.fn(() => searchParamsValue),
   usePathname: vi.fn(),
+  notFound: notFoundMock,
 }));
 
 vi.mock("@/components/DashboardHeader", () => ({
@@ -82,7 +83,27 @@ describe("(dashboard) Layout", () => {
     vi.clearAllMocks();
     pendingUiConfig = createDeferred();
     searchParamsValue = new URLSearchParams();
-    vi.mocked(usePathname).mockReturnValue("/ui/guardrails");
+    vi.mocked(usePathname).mockReturnValue("/ui/api-keys");
+  });
+
+  it.each([
+    ["/ui/guardrails", true],
+    ["/ui/logs", true],
+    ["/ui/api-keys", false],
+  ])("calls Next.js notFound() for %s: %s", async (pathname, hidden) => {
+    vi.mocked(usePathname).mockReturnValue(pathname);
+    render(
+      <AuthProvider>
+        <Layout>
+          <div data-testid="page-content" />
+        </Layout>
+      </AuthProvider>,
+    );
+    pendingUiConfig.resolve();
+
+    await screen.findByTestId("page-content");
+    if (hidden) expect(notFoundMock).toHaveBeenCalled();
+    else expect(notFoundMock).not.toHaveBeenCalled();
   });
 
   it("collapses the sidebar on Logs for a full-screen view and expands it again after leaving", async () => {

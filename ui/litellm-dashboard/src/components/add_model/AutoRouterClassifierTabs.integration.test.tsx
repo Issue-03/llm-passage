@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, renderWithProviders, screen, waitFor, within } from "../../../tests/test-utils";
+import { fireEvent, renderWithProviders, screen, within } from "../../../tests/test-utils";
 import { selectAutoRouterOption } from "../../../tests/autoRouterSetup";
 import AutoRouterClassifierTabs from "./AutoRouterClassifierTabs";
 import { AutoRouterAllowanceNote, AutoRouterAvailabilityContext } from "./AutoRouterAvailability";
@@ -193,36 +193,26 @@ describe("Auto-router classifier selection", () => {
 });
 
 describe("Gated routing contact action", () => {
-  it("offers a pricing discussion in View limits", async () => {
+  it("shows no sales contact link in View limits", async () => {
     renderWithProviders(<Form remaining={0} />);
-    expect(screen.queryByRole("link", { name: "Talk to our team" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "View limits" }));
-    const link = within(screen.getByRole("dialog")).getByRole("link", { name: "Talk to our team" });
-    await waitFor(() => expect(link).toBeVisible());
-    expect(link).toHaveAttribute("href", "https://calendly.com/tin-berri/litellm-auto-router-pricing-discussion");
-    expect(link).toHaveAttribute("target", "_blank");
-    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Routing and customization limits")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("link")).not.toBeInTheDocument();
   });
 
   it.each([
     ["heuristic", "Heuristic", "Heuristic v2"],
     ["llm", "Routing approach", "Capability"],
-  ] as const)(
-    "keeps the contact action available beside the disabled %s choice",
-    async (classifier_type, field, option) => {
-      renderWithProviders(<Form initialValue={{ ...initial, classifier_type }} remaining={0} />);
-      expect(screen.queryByText(/Need more/)).not.toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: field }));
-      const disabled = screen.getByRole("menuitemradio", { name: new RegExp(`^${option}`) });
-      expect(disabled).toHaveAttribute("aria-disabled", "true");
-      const link = screen.getByRole("menuitem", { name: `Talk to our team about ${option}` });
-      await waitFor(() => expect(link).toBeVisible());
-      expect(link).toHaveAttribute("href", "https://calendly.com/tin-berri/litellm-auto-router-pricing-discussion");
-      expect(link).toHaveAttribute("target", "_blank");
-      fireEvent.click(link);
-      expect(screen.getByRole("status", { name: "Classifier type" })).toHaveTextContent(classifier_type);
-    },
-  );
+  ] as const)("disables the exhausted %s choice without a contact link", (classifier_type, field, option) => {
+    renderWithProviders(<Form initialValue={{ ...initial, classifier_type }} remaining={0} />);
+    fireEvent.click(screen.getByRole("button", { name: field }));
+    expect(screen.getByRole("menuitemradio", { name: new RegExp(`^${option}`) })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(screen.queryByRole("menuitem", { name: /Talk to our team/ })).not.toBeInTheDocument();
+  });
 
   it.each([
     { remaining: 1 },
@@ -244,7 +234,7 @@ describe("Gated routing contact action", () => {
     expect(screen.queryByRole("menuitem", { name: /Talk to our team/ })).not.toBeInTheDocument();
   });
 
-  it("includes the sales action beside customization limits and blocked changes", () => {
+  it("shows customization limits and blocked changes without a sales link", () => {
     const allowance = { key: "tier_or_classifier_prompt", limit: 1, remaining: 0, available: true };
     const state = {
       isPending: false,
@@ -258,7 +248,7 @@ describe("Gated routing contact action", () => {
         </AutoRouterClassifierTabs>
       </AutoRouterAvailabilityContext.Provider>,
     );
-    expect(screen.getByText(/Custom tiers: 0 of 1 available/)).toHaveTextContent("Talk to our team");
-    expect(within(screen.getByRole("alert")).getByRole("link", { name: "Talk to our team" })).toBeVisible();
+    expect(screen.getByText(/Custom tiers: 0 of 1 available/)).not.toHaveTextContent("Talk to our team");
+    expect(within(screen.getByRole("alert")).queryByRole("link")).not.toBeInTheDocument();
   });
 });

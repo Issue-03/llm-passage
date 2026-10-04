@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../tests/test-utils";
-import Sidebar, { menuGroups, getBreadcrumb } from "./leftnav";
+import Sidebar, { menuGroups, getBreadcrumb, isHiddenRoute } from "./leftnav";
 
 vi.mock("../utils/roles", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../utils/roles")>();
@@ -655,4 +655,24 @@ describe("getBreadcrumb", () => {
   it("falls back to a prettified title with no section for unknown routes", () => {
     expect(getBreadcrumb("/ui/some-unknown-page")).toEqual({ section: null, title: "Some Unknown Page" });
   });
+});
+
+describe("isHiddenRoute", () => {
+  it.each(["/ui/", "/ui/api-keys", "/ui/playground", "/ui/models-and-endpoints", "/ui/teams", "/ui/users"])(
+    "keeps sidebar page %s reachable",
+    (pathname) => {
+      expect(isHiddenRoute(pathname)).toBe(false);
+    },
+  );
+
+  it("keeps change-password reachable", () => {
+    expect(isHiddenRoute("/ui/change-password")).toBe(false);
+  });
+
+  it.each(["/ui/guardrails", "/ui/logs", "/ui/mcp-servers", "/ui/organizations", "/ui/router-settings", "/ui/memory"])(
+    "hides %s",
+    (pathname) => {
+      expect(isHiddenRoute(pathname)).toBe(true);
+    },
+  );
 });

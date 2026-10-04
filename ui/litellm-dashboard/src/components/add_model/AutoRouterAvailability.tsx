@@ -79,30 +79,6 @@ export const isAllowanceExhausted = (allowance?: Allowance) =>
   Boolean(allowance?.available && allowance.limit != null && allowance.remaining === 0) &&
   !allowance?.used_by_this_router;
 
-export const AUTO_ROUTER_CONTACT_URL = "https://calendly.com/tin-berri/litellm-auto-router-pricing-discussion";
-
-export const AutoRouterContactLink = ({ features, message }: { features?: string[]; message?: string }) => {
-  const state = useContext(AutoRouterAvailabilityContext);
-  if (state.isPending || state.isError || state.isChecking) return null;
-  const exhausted = state.data?.allowances.some(
-    (entry) => (!features || features.includes(entry.key)) && isAllowanceExhausted(entry),
-  );
-  if (!exhausted) return null;
-  return (
-    <span className="inline-flex flex-wrap items-baseline gap-x-1 text-xs leading-5 text-muted-foreground">
-      {message}
-      <a
-        href={AUTO_ROUTER_CONTACT_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="font-medium text-blue-600 hover:underline dark:text-blue-400"
-      >
-        Talk to our team
-      </a>
-    </span>
-  );
-};
-
 export const AutoRouterAllowanceLabel = ({ feature }: { feature: string }) => {
   const label = useAllowanceLabel(feature);
   return label ? (
@@ -114,7 +90,7 @@ export const AutoRouterAllowanceNote = ({ feature, label }: { feature: string; l
   const availability = useAllowanceLabel(feature);
   return availability ? (
     <p className="text-xs leading-5 text-muted-foreground">
-      {label}: {availability} <AutoRouterContactLink features={[feature]} />
+      {label}: {availability}
     </p>
   ) : null;
 };
@@ -158,7 +134,6 @@ export const AutoRouterLimits = () => {
           tuning allowance. It also applies to Heuristic first and Hybrid. Recorded settings on existing routers are
           preserved; new routers start from built-in rules.
         </p>
-        <AutoRouterContactLink message="Need a higher limit?" />
       </PopoverContent>
     </Popover>
   );

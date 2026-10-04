@@ -111,8 +111,8 @@ interface MenuGroup {
 // Menu groups organized by category - defined outside component for export.
 // Shape (key/page/label/roles/children) is consumed by page_utils.ts; only the
 // icons changed to lucide as part of the sidebar redesign.
-// Sections and pages hidden from the sidebar. The pages still exist and are reachable by URL;
-// delete an entry here to bring it back.
+// Sections and pages hidden from the sidebar. Their URLs show a 404 (see isHiddenRoute);
+// delete an entry here to bring a page back.
 const HIDDEN_GROUPS: ReadonlySet<string> = new Set(["OBSERVABILITY", "DEVELOPER TOOLS", "SETTINGS"]);
 const HIDDEN_ITEMS: ReadonlySet<string> = new Set([
   "agentic",
@@ -411,6 +411,22 @@ const prettify = (key: string): string =>
     .join(" ");
 
 const labelText = (item: MenuItem): string => (typeof item.label === "string" ? item.label : prettify(item.key));
+
+// Routes outside the sidebar that must stay reachable.
+const ALWAYS_REACHABLE_ROUTES: ReadonlySet<string> = new Set(["change-password"]);
+
+const VISIBLE_ROUTES: ReadonlySet<string> = new Set(
+  menuGroups
+    .filter((group) => !HIDDEN_GROUPS.has(group.groupLabel))
+    .flatMap((group) => group.items.filter((item) => !HIDDEN_ITEMS.has(item.key)))
+    .flatMap((item) => [routeOf(item), ...(item.children ?? []).map(routeOf)]),
+);
+
+/** True for dashboard URLs whose page is not in the sidebar; the layout shows a 404 for them. */
+export const isHiddenRoute = (pathname: string): boolean => {
+  const route = routeSegmentForPathname(pathname);
+  return route !== "" && !VISIBLE_ROUTES.has(route) && !ALWAYS_REACHABLE_ROUTES.has(route);
+};
 
 // Breadcrumb ("Section" / "Page") for the top bar, derived from the same nav config.
 export const getBreadcrumb = (pathname: string): { section: string | null; title: string } => {

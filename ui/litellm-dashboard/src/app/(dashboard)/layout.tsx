@@ -2,12 +2,13 @@
 
 import React, { Suspense, useState, useRef, useEffect } from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
+import { isHiddenRoute } from "@/components/leftnav";
 import Navbar from "@/components/navbar";
 import LoadingScreen from "@/components/common_components/LoadingScreen";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import SidebarProvider from "@/app/(dashboard)/components/SidebarProvider";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { notFound, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DebugWarningBanner } from "@/components/DebugWarningBanner";
 import { NoRedisWarningBanner } from "@/components/NoRedisWarningBanner";
 import { EnvCredentialLoginWarningBanner } from "@/components/EnvCredentialLoginWarningBanner";
@@ -103,12 +104,16 @@ const FULL_BLEED_SEGMENTS = new Set(["logs"]);
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const { accessToken } = useAuth();
   const { mode } = usePluginMode();
-  const routeSegment = routeSegmentForPathname(usePathname());
+  const pathname = usePathname();
+  const routeSegment = routeSegmentForPathname(pathname);
   const isFullBleed = FULL_BLEED_SEGMENTS.has(routeSegment);
   // A manual toggle holds only for the route it was made on; full-bleed routes default to collapsed.
   const [sidebarOverride, setSidebarOverride] = useState<{ segment: string; collapsed: boolean } | null>(null);
   const sidebarCollapsed = sidebarOverride?.segment === routeSegment ? sidebarOverride.collapsed : isFullBleed;
   const toggleSidebar = () => setSidebarOverride({ segment: routeSegment, collapsed: !sidebarCollapsed });
+
+  // Pages hidden from the sidebar get Next.js's built-in 404.
+  if (isHiddenRoute(pathname)) notFound();
 
   const isGateway = mode === "ai-gateway";
 
