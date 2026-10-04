@@ -283,35 +283,38 @@ describe("ChatUI", () => {
     });
   });
 
-  it.skipIf(!PLAYGROUND_FIELD_VISIBILITY.mcpServers)("should enable the MCP tools selector for chat completions", async () => {
-    render(
-      <ChatUI
-        accessToken="1234567890"
-        token="1234567890"
-        userRole="user"
-        userID="1234567890"
-        disabledPersonalKeyCreation={false}
-      />,
-    );
+  it.skipIf(!PLAYGROUND_FIELD_VISIBILITY.mcpServers)(
+    "should enable the MCP tools selector for chat completions",
+    async () => {
+      render(
+        <ChatUI
+          accessToken="1234567890"
+          token="1234567890"
+          userRole="user"
+          userID="1234567890"
+          disabledPersonalKeyCreation={false}
+        />,
+      );
 
-    await waitFor(() => {
-      expect(screen.getByText("Test Key")).toBeInTheDocument();
-    });
+      await waitFor(() => {
+        expect(screen.getByText("Test Key")).toBeInTheDocument();
+      });
 
-    const mcpInput = () => screen.getByLabelText("Select MCP servers");
+      const mcpInput = () => screen.getByLabelText("Select MCP servers");
 
-    await selectComboboxOption("Select an endpoint", "/v1/embeddings");
+      await selectComboboxOption("Select an endpoint", "/v1/embeddings");
 
-    await waitFor(() => {
-      expect(mcpInput()).toBeDisabled();
-    });
+      await waitFor(() => {
+        expect(mcpInput()).toBeDisabled();
+      });
 
-    await selectComboboxOption("Select an endpoint", "/v1/chat/completions");
+      await selectComboboxOption("Select an endpoint", "/v1/chat/completions");
 
-    await waitFor(() => {
-      expect(mcpInput()).toBeEnabled();
-    });
-  });
+      await waitFor(() => {
+        expect(mcpInput()).toBeEnabled();
+      });
+    },
+  );
 
   it("should show Simulate failure to test fallbacks in Model Settings when chat endpoint is selected", async () => {
     const user = userEvent.setup();
@@ -619,7 +622,7 @@ describe("ChatUI", () => {
     expect(customProxyInput).toHaveValue(testProxyUrl);
   });
 
-  it("hides the MCP Servers, Vector Store and Policies fields but keeps Guardrails", async () => {
+  it("hides the MCP Servers, Vector Store, Policies and Guardrails fields", async () => {
     render(
       <ChatUI
         accessToken="1234567890"
@@ -631,40 +634,43 @@ describe("ChatUI", () => {
     );
 
     expect(await screen.findByText("Test Key")).toBeInTheDocument();
-    expect(screen.getByText("Guardrails")).toBeInTheDocument();
+    expect(screen.queryByText("Guardrails")).not.toBeInTheDocument();
     expect(screen.queryByText("MCP Servers")).not.toBeInTheDocument();
     expect(screen.queryByText("Vector Store")).not.toBeInTheDocument();
     expect(screen.queryByText("Policies")).not.toBeInTheDocument();
   });
 
-  it.skipIf(!PLAYGROUND_FIELD_VISIBILITY.mcpServers)("should enable search functionality for MCP server selector", async () => {
-    const user = userEvent.setup();
-    render(
-      <ChatUI
-        accessToken="1234567890"
-        token="1234567890"
-        userRole="user"
-        userID="1234567890"
-        disabledPersonalKeyCreation={false}
-      />,
-    );
+  it.skipIf(!PLAYGROUND_FIELD_VISIBILITY.mcpServers)(
+    "should enable search functionality for MCP server selector",
+    async () => {
+      const user = userEvent.setup();
+      render(
+        <ChatUI
+          accessToken="1234567890"
+          token="1234567890"
+          userRole="user"
+          userID="1234567890"
+          disabledPersonalKeyCreation={false}
+        />,
+      );
 
-    await waitFor(() => {
-      expect(screen.getByText("Test Key")).toBeInTheDocument();
-    });
+      await waitFor(() => {
+        expect(screen.getByText("Test Key")).toBeInTheDocument();
+      });
 
-    expect(screen.getByText("MCP Servers")).toBeInTheDocument();
+      expect(screen.getByText("MCP Servers")).toBeInTheDocument();
 
-    const mcpInput = screen.getByLabelText("Select MCP servers");
-    expect(mcpInput).toBeInTheDocument();
-    expect(mcpInput).toBeEnabled();
+      const mcpInput = screen.getByLabelText("Select MCP servers");
+      expect(mcpInput).toBeInTheDocument();
+      expect(mcpInput).toBeEnabled();
 
-    await user.click(mcpInput);
+      await user.click(mcpInput);
 
-    await waitFor(() => {
-      expect(screen.getByText("All MCP Servers")).toBeInTheDocument();
-    });
-  });
+      await waitFor(() => {
+        expect(screen.getByText("All MCP Servers")).toBeInTheDocument();
+      });
+    },
+  );
 
   it("should keep the chosen endpoint when a model that endpoint can serve is picked", async () => {
     (fetchModelsModule.fetchAvailableModels as ReturnType<typeof vi.fn>).mockResolvedValueOnce([

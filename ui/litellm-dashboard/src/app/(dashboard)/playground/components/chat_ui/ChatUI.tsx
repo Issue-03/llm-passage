@@ -257,6 +257,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
     }
   });
   const [selectedGuardrails, setSelectedGuardrails] = useState<string[]>(() => {
+    if (!PLAYGROUND_FIELD_VISIBILITY.guardrails) return [];
     const saved = sessionStorage.getItem("selectedGuardrails");
     try {
       return saved ? JSON.parse(saved) : [];
@@ -1726,29 +1727,31 @@ const ChatUI: React.FC<ChatUIProps> = ({
                   </div>
                 )}
 
-                <div>
-                  <div className="mb-2 flex items-center gap-1 text-sm font-medium text-foreground">
-                    <Shield className="mr-1 size-4" aria-hidden="true" /> Guardrails
-                    <Tooltip>
-                      <TooltipTrigger aria-label="About guardrails">
-                        <Info className="size-3.5 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        Select guardrail(s) to use for this LLM API call. You can set up your guardrails{" "}
-                        <a href={uiHref("guardrails")} className="text-info underline">
-                          here
-                        </a>
-                        .
-                      </TooltipContent>
-                    </Tooltip>
+                {PLAYGROUND_FIELD_VISIBILITY.guardrails && (
+                  <div>
+                    <div className="mb-2 flex items-center gap-1 text-sm font-medium text-foreground">
+                      <Shield className="mr-1 size-4" aria-hidden="true" /> Guardrails
+                      <Tooltip>
+                        <TooltipTrigger aria-label="About guardrails">
+                          <Info className="size-3.5 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          Select guardrail(s) to use for this LLM API call. You can set up your guardrails{" "}
+                          <a href={uiHref("guardrails")} className="text-info underline">
+                            here
+                          </a>
+                          .
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <GuardrailSelector
+                      value={selectedGuardrails}
+                      onChange={setSelectedGuardrails}
+                      className="mb-4"
+                      accessToken={accessToken || ""}
+                    />
                   </div>
-                  <GuardrailSelector
-                    value={selectedGuardrails}
-                    onChange={setSelectedGuardrails}
-                    className="mb-4"
-                    accessToken={accessToken || ""}
-                  />
-                </div>
+                )}
 
                 {PLAYGROUND_FIELD_VISIBILITY.policies && canViewPolicies && (
                   <div>

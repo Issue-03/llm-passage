@@ -235,7 +235,7 @@ After each batch: tests for the touched files (`LANG=en_US.UTF-8`), lint, build,
 **Top bar app switcher** (AI Gateway / Chat dropdown): hidden through `showViewSwitcher = false` in `DashboardHeader.tsx`, so the breadcrumb shows only the page name. The Chat page's own navbar keeps the switcher, so you can get back if Chat is ever enabled.
 
 **Playground** (`playground/components/chat_ui/chatConstants.ts`):
-- `PLAYGROUND_FIELD_VISIBILITY`: MCP Servers, Vector Store and Policies fields hidden; Guardrails kept.
+- `PLAYGROUND_FIELD_VISIBILITY`: MCP Servers, Vector Store and Policies fields hidden; Guardrails hidden too (2026-10-04, after `3b3875c`). The Compliance tab still has its own guardrails picker.
 - `HIDDEN_ENDPOINT_TYPES`: the `/mcp-rest/tools/call` (MCP) and `/v1/a2a/message/send` (agents) endpoints are hidden.
 - **Safeguards:**
   - a hidden field's selection always starts empty, ignoring anything saved in the session, so it is never sent in requests or "Get Code" snippets (for MCP this includes the per-server tool limits)
@@ -298,6 +298,14 @@ Tests added or updated for the header account menu, the Agent Builder tab, the s
 - `pyproject.toml` `[project.scripts]` has `embrouter = "litellm:run_server"` next to `litellm`, so the proxy starts with `uv run --env-file .env embrouter --config config.yaml --port 4000` (README and `config.example.yaml` updated). Needs a `uv sync` once to install the command.
 - `litellm` (and `lite`, `litellm-proxy`) still work; Phase 3 removes or renames them.
 - `trusted_proxy_ranges: []` added to `general_settings` in `config.example.yaml`, so the startup warning about it is gone (clients connect directly).
+
+### Login page (2026-10-04)
+
+- Hidden through `LOGIN_PAGE_VISIBILITY` in `ui/litellm-dashboard/src/app/login/loginVisibility.ts` (set a flag to `true` to bring it back):
+  - `ssoButton`: the "Login with SSO" button (disabled or active).
+  - `defaultCredentialsHint`: the "Default Credentials" card (admin / `MASTER_KEY` hint and the docs link).
+- The SSO auto-redirect and the "SSO is enabled" notice still follow the server config; they only appear once SSO is configured.
+- The two SSO button tests use `it.skipIf(!LOGIN_PAGE_VISIBILITY.ssoButton)`; a new test checks both are hidden.
 
 ### Still to decide
 

@@ -54,6 +54,7 @@ export const PLAYGROUND_FIELD_VISIBILITY = {
   mcpServers: false,
   vectorStores: false,
   policies: false,
+  guardrails: false,
 } as const;
 
 export const HIDDEN_ENDPOINT_TYPES: ReadonlySet<string> = new Set<string>([EndpointType.MCP, EndpointType.A2A_AGENTS]);

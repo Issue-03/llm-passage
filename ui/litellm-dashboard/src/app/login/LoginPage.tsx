@@ -23,6 +23,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { z } from "zod/v4";
 import { useWorker } from "@/hooks/useWorker";
+import { LOGIN_PAGE_VISIBILITY } from "./loginVisibility";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Please enter your username"),
@@ -230,7 +231,7 @@ function LoginPageContent() {
                 <p className="text-sm text-muted-foreground">Access your EmbRouter Admin UI.</p>
               </div>
 
-              {!uiConfig?.hide_default_credentials_hint && (
+              {LOGIN_PAGE_VISIBILITY.defaultCredentialsHint && !uiConfig?.hide_default_credentials_hint && (
                 <Alert variant="info">
                   <Info />
                   <AlertTitle>Default Credentials</AlertTitle>
@@ -313,39 +314,40 @@ function LoginPageContent() {
                     {isLoginLoading ? "Logging in..." : "Login"}
                   </Button>
 
-                  {!uiConfig?.sso_configured ? (
-                    <Tooltip>
-                      <TooltipTrigger render={<span className="block w-full" />}>
-                        <Button type="button" variant="outline" size="lg" disabled className="w-full">
-                          Login with SSO
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Please configure SSO to log in with SSO.</TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="lg"
-                      disabled={isLoginLoading || (!!selectedWorkerId && workers.length === 0)}
-                      onClick={() => {
-                        const selectedWorker = workers.find((w) => w.worker_id === selectedWorkerId);
-                        if (selectedWorker) {
-                          // Store worker selection so useWorker hook restores it after redirect
-                          localStorage.setItem("litellm_selected_worker_id", selectedWorkerId!);
-                          switchToWorkerUrl(selectedWorker.url);
-                        }
-                        // SSO on the worker (or this instance if no worker), always
-                        // include return_to so the callback redirects back here
-                        const ssoBase = selectedWorker?.url ?? getProxyBaseUrl();
-                        const returnTo = encodeURIComponent(getLoginUrl(window.location.origin));
-                        router.push(`${ssoBase}/sso/key/generate?return_to=${returnTo}`);
-                      }}
-                      className="w-full"
-                    >
-                      Login with SSO
-                    </Button>
-                  )}
+                  {LOGIN_PAGE_VISIBILITY.ssoButton &&
+                    (!uiConfig?.sso_configured ? (
+                      <Tooltip>
+                        <TooltipTrigger render={<span className="block w-full" />}>
+                          <Button type="button" variant="outline" size="lg" disabled className="w-full">
+                            Login with SSO
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Please configure SSO to log in with SSO.</TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="lg"
+                        disabled={isLoginLoading || (!!selectedWorkerId && workers.length === 0)}
+                        onClick={() => {
+                          const selectedWorker = workers.find((w) => w.worker_id === selectedWorkerId);
+                          if (selectedWorker) {
+                            // Store worker selection so useWorker hook restores it after redirect
+                            localStorage.setItem("litellm_selected_worker_id", selectedWorkerId!);
+                            switchToWorkerUrl(selectedWorker.url);
+                          }
+                          // SSO on the worker (or this instance if no worker), always
+                          // include return_to so the callback redirects back here
+                          const ssoBase = selectedWorker?.url ?? getProxyBaseUrl();
+                          const returnTo = encodeURIComponent(getLoginUrl(window.location.origin));
+                          router.push(`${ssoBase}/sso/key/generate?return_to=${returnTo}`);
+                        }}
+                        className="w-full"
+                      >
+                        Login with SSO
+                      </Button>
+                    ))}
                 </FieldGroup>
               </form>
             </div>
