@@ -2,6 +2,7 @@ import { act, fireEvent, render, waitFor, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MountedFormHost } from "../../../tests/mounted-form-host";
 import AdvancedSettings from "./advanced_settings";
+import { ADD_MODEL_FIELD_VISIBILITY } from "./addModelVisibility";
 
 const mockUsePtuCostAttributionEnabled = vi.fn();
 
@@ -40,6 +41,18 @@ describe("AdvancedSettings", () => {
     await waitFor(() => {
       expect(screen.getByText("Tags")).toBeInTheDocument();
     });
+  });
+
+  it("hides the Attached Knowledge Bases and Guardrails fields", async () => {
+    expect(ADD_MODEL_FIELD_VISIBILITY.knowledgeBases).toBe(false);
+    expect(ADD_MODEL_FIELD_VISIBILITY.guardrails).toBe(false);
+    renderAdvancedSettings();
+    fireEvent.click(screen.getByText("Advanced Settings"));
+    await waitFor(() => {
+      expect(screen.getByText("Tags")).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Attached Knowledge Bases/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Guardrails/)).not.toBeInTheDocument();
   });
 
   it("should render the litellm params", async () => {

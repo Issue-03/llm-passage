@@ -307,6 +307,15 @@ Tests added or updated for the header account menu, the Agent Builder tab, the s
 - The SSO auto-redirect and the "SSO is enabled" notice still follow the server config; they only appear once SSO is configured.
 - The two SSO button tests use `it.skipIf(!LOGIN_PAGE_VISIBILITY.ssoButton)`; a new test checks both are hidden.
 
+### Add Model fields (2026-10-04)
+
+Hidden through `ADD_MODEL_FIELD_VISIBILITY` in `ui/litellm-dashboard/src/components/add_model/addModelVisibility.ts` (set a flag to `true` to bring it back):
+- `teamByokSwitch`: "Team-BYOK Model" (lock a model + credential to one team). It needs a LiteLLM Enterprise licence (`premiumUser`), so it was always disabled with an "enterprise-only, upgrade to premium" tooltip. The "Select Team" dropdown that follows it goes too.
+- `knowledgeBases`: Advanced Settings → "Attached Knowledge Bases (RAG)" (the Vector Stores page is hidden).
+- `guardrails`: Advanced Settings → "Guardrails" (the Guardrails page is hidden).
+
+The model **edit** form (`ModelInfoEditForm.tsx`) still shows its own Guardrails / knowledge-base fields. Team-BYOK tests use `skipIf`; new tests check the fields are hidden.
+
 ### Still to decide
 
 - Policies → Attachments still shows an "Enterprise Feature Notice" box.

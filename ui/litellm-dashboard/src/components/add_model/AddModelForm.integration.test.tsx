@@ -7,6 +7,7 @@ import { Providers } from "../provider_info_helpers";
 import { projectMountedValues, useMountRegistry, type MountedFormValues } from "../common_components/MountedFormField";
 import { useForm } from "react-hook-form";
 import AddModelForm from "./AddModelForm";
+import { ADD_MODEL_FIELD_VISIBILITY } from "./addModelVisibility";
 
 vi.mock("../molecules/models/ProviderLogo", () => ({
   ProviderLogo: ({ provider, className }: { provider: string; className?: string }) => (
@@ -188,51 +189,57 @@ describe("AddModelForm", () => {
     expect(await screen.findByRole("heading", { name: "Add Model" })).toBeInTheDocument();
   });
 
-  it("should show proxy admin only (not team admin) - should not see Select Team dropdown unless switch is toggled", async () => {
-    const mockUseAuthorized = vi.mocked(await import("@/app/(dashboard)/hooks/useAuthorized"));
-    mockUseAuthorized.default.mockReturnValue(mockAuthorizedUser("proxy_admin", "user-1", true));
+  it.skipIf(!ADD_MODEL_FIELD_VISIBILITY.teamByokSwitch)(
+    "should show proxy admin only (not team admin) - should not see Select Team dropdown unless switch is toggled",
+    async () => {
+      const mockUseAuthorized = vi.mocked(await import("@/app/(dashboard)/hooks/useAuthorized"));
+      mockUseAuthorized.default.mockReturnValue(mockAuthorizedUser("proxy_admin", "user-1", true));
 
-    const props = createTestProps("proxy_admin", "user-1", false);
+      const props = createTestProps("proxy_admin", "user-1", false);
 
-    renderWithProviders(<AddModelForm {...props} />);
+      renderWithProviders(<AddModelForm {...props} />);
 
-    await screen.findByText("Provider");
+      await screen.findByText("Provider");
 
-    expect(screen.queryByText("Team Selection Required")).not.toBeInTheDocument();
-    expect(screen.queryByText("Select Team")).not.toBeInTheDocument();
+      expect(screen.queryByText("Team Selection Required")).not.toBeInTheDocument();
+      expect(screen.queryByText("Select Team")).not.toBeInTheDocument();
 
-    const teamSwitch = screen.getByRole("switch");
-    expect(teamSwitch).toBeInTheDocument();
+      const teamSwitch = screen.getByRole("switch");
+      expect(teamSwitch).toBeInTheDocument();
 
-    expect(screen.queryByText("Select Team")).not.toBeInTheDocument();
+      expect(screen.queryByText("Select Team")).not.toBeInTheDocument();
 
-    await userEvent.click(teamSwitch);
+      await userEvent.click(teamSwitch);
 
-    expect(await screen.findByText("Select Team")).toBeInTheDocument();
-  });
+      expect(await screen.findByText("Select Team")).toBeInTheDocument();
+    },
+  );
 
-  it("should show proxy admin who is also team admin - should not see Select Team dropdown unless switch is toggled", async () => {
-    const mockUseAuthorized = vi.mocked(await import("@/app/(dashboard)/hooks/useAuthorized"));
-    mockUseAuthorized.default.mockReturnValue(mockAuthorizedUser("proxy_admin", "user-1", true));
+  it.skipIf(!ADD_MODEL_FIELD_VISIBILITY.teamByokSwitch)(
+    "should show proxy admin who is also team admin - should not see Select Team dropdown unless switch is toggled",
+    async () => {
+      const mockUseAuthorized = vi.mocked(await import("@/app/(dashboard)/hooks/useAuthorized"));
+      mockUseAuthorized.default.mockReturnValue(mockAuthorizedUser("proxy_admin", "user-1", true));
 
-    const props = createTestProps("proxy_admin", "user-1", true);
+      const props = createTestProps("proxy_admin", "user-1", true);
 
-    renderWithProviders(<AddModelForm {...props} />);
+      renderWithProviders(<AddModelForm {...props} />);
 
-    await screen.findByText("Provider");
+      await screen.findByText("Provider");
 
-    expect(screen.queryByText("Team Selection Required")).not.toBeInTheDocument();
-    expect(screen.queryByText("Select Team")).not.toBeInTheDocument();
+      expect(screen.queryByText("Team Selection Required")).not.toBeInTheDocument();
+      expect(screen.queryByText("Select Team")).not.toBeInTheDocument();
 
-    const teamSwitch = screen.getByRole("switch");
-    expect(teamSwitch).toBeInTheDocument();
+      const teamSwitch = screen.getByRole("switch");
+      expect(teamSwitch).toBeInTheDocument();
 
-    expect(screen.queryByText("Select Team")).not.toBeInTheDocument();
+      expect(screen.queryByText("Select Team")).not.toBeInTheDocument();
 
-    await userEvent.click(teamSwitch);
+      await userEvent.click(teamSwitch);
 
-    expect(await screen.findByText("Select Team")).toBeInTheDocument();
-  });
+      expect(await screen.findByText("Select Team")).toBeInTheDocument();
+    },
+  );
 
   it("should show team admin (not proxy admin) - should see alert and team select, must select team before seeing remaining fields", async () => {
     const mockUseAuthorized = vi.mocked(await import("@/app/(dashboard)/hooks/useAuthorized"));
@@ -326,7 +333,21 @@ describe("AddModelForm", () => {
     expect(footer!.textContent?.trim()).toBe("Close");
   });
 
-  describe("the enterprise gate on the Team-BYOK switch", () => {
+  it.each([true, false])(
+    "hides the Team-BYOK switch and the Select Team dropdown (premiumUser=%s)",
+    async (premiumUser) => {
+      const mockUseAuthorized = vi.mocked(await import("@/app/(dashboard)/hooks/useAuthorized"));
+      mockUseAuthorized.default.mockReturnValue(mockAuthorizedUser("proxy_admin", "user-1", premiumUser));
+      renderWithProviders(<AddModelForm {...createTestProps()} />);
+
+      await screen.findByText("Provider");
+      expect(screen.queryByRole("switch", { name: "Team-BYOK Model" })).not.toBeInTheDocument();
+      expect(screen.queryByText(/enterprise-only feature/)).not.toBeInTheDocument();
+      expect(screen.queryByText("Select Team")).not.toBeInTheDocument();
+    },
+  );
+
+  describe.skipIf(!ADD_MODEL_FIELD_VISIBILITY.teamByokSwitch)("the enterprise gate on the Team-BYOK switch", () => {
     const renderForm = async (premiumUser: boolean) => {
       const mockUseAuthorized = vi.mocked(await import("@/app/(dashboard)/hooks/useAuthorized"));
       mockUseAuthorized.default.mockReturnValue(mockAuthorizedUser("proxy_admin", "user-1", premiumUser));

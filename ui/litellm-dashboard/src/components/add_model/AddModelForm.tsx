@@ -28,6 +28,7 @@ import { type CredentialItem, type ProviderCreateInfo, modelAvailableCall } from
 import { ProviderLogo } from "../molecules/models/ProviderLogo";
 import AccessGroupTagsCombobox from "./AccessGroupTagsCombobox";
 import AdvancedSettings from "./advanced_settings";
+import { ADD_MODEL_FIELD_VISIBILITY } from "./addModelVisibility";
 import ConditionalPublicModelName from "./conditional_public_model_name";
 import LiteLLMModelNameField from "./litellm_model_name";
 import ConnectionErrorDisplay from "./model_connection_test";
@@ -325,7 +326,7 @@ const AddModelForm: React.FC<AddModelFormProps> = ({
                         <div className="grow border-t border-border"></div>
                       </div>
                       {/* Team-only Model Switch - Only show for proxy admins, not team admins */}
-                      {(isAdmin || !isTeamAdmin) && (
+                      {ADD_MODEL_FIELD_VISIBILITY.teamByokSwitch && (isAdmin || !isTeamAdmin) && (
                         <Field className="mb-4">
                           <FieldLabel>
                             {labelWithHint(
