@@ -65,6 +65,7 @@ import { TOP_MODEL_LIMITS } from "./EntityUsage/TopModelView";
 import TopKeyView, { type TopKeyItem } from "@/components/UsagePage/components/EntityUsage/TopKeyView";
 import { getGlobalTopKeys } from "./EntityUsage/entityUsageAggregations";
 import UsageAIChatPanel from "./UsageAIChatPanel";
+import { USAGE_PAGE_VISIBILITY } from "./usageVisibility";
 import { UsageOption, UsageViewSelect } from "./UsageViewSelect/UsageViewSelect";
 
 interface UsagePageProps {
@@ -481,18 +482,22 @@ const UsagePage: React.FC<UsagePageProps> = ({ teams, organizations }) => {
                     <TabsTrigger value="keys" className="flex-none px-3">
                       Key Activity
                     </TabsTrigger>
-                    <TabsTrigger value="mcp" className="flex-none px-3">
-                      MCP Server Activity
-                    </TabsTrigger>
+                    {USAGE_PAGE_VISIBILITY.mcpServerActivity && (
+                      <TabsTrigger value="mcp" className="flex-none px-3">
+                        MCP Server Activity
+                      </TabsTrigger>
+                    )}
                     <TabsTrigger value="endpoints" className="flex-none px-3">
                       Endpoint Activity
                     </TabsTrigger>
                   </TabsList>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={() => setIsAiChatOpen(true)}>
-                      <Sparkles />
-                      Ask AI
-                    </Button>
+                    {USAGE_PAGE_VISIBILITY.askAi && (
+                      <Button variant="outline" onClick={() => setIsAiChatOpen(true)}>
+                        <Sparkles />
+                        Ask AI
+                      </Button>
+                    )}
                     <span title={exportBlockedReason}>
                       <Button
                         variant="outline"
@@ -863,9 +868,11 @@ const UsagePage: React.FC<UsagePageProps> = ({ teams, organizations }) => {
                 <TabsContent value="keys" keepMounted>
                   <KeyActivityPanel keyMetrics={keyMetrics} />
                 </TabsContent>
-                <TabsContent value="mcp" keepMounted>
-                  <ActivityMetrics modelMetrics={mcpServerMetrics} />
-                </TabsContent>
+                {USAGE_PAGE_VISIBILITY.mcpServerActivity && (
+                  <TabsContent value="mcp" keepMounted>
+                    <ActivityMetrics modelMetrics={mcpServerMetrics} />
+                  </TabsContent>
+                )}
                 <TabsContent value="endpoints" keepMounted>
                   <EndpointUsage userSpendData={userSpendData} />
                 </TabsContent>
@@ -1015,7 +1022,9 @@ const UsagePage: React.FC<UsagePageProps> = ({ teams, organizations }) => {
       />
 
       {/* AI Chat Panel */}
-      <UsageAIChatPanel open={isAiChatOpen} onClose={() => setIsAiChatOpen(false)} accessToken={accessToken} />
+      {USAGE_PAGE_VISIBILITY.askAi && (
+        <UsageAIChatPanel open={isAiChatOpen} onClose={() => setIsAiChatOpen(false)} accessToken={accessToken} />
+      )}
     </div>
   );
 };

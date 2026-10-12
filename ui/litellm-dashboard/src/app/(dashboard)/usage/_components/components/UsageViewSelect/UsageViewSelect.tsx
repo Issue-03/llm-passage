@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { hasCapability, type Capability } from "@/utils/capabilities";
 import { all_admin_roles } from "@/utils/roles";
+import { HIDDEN_USAGE_VIEWS } from "../usageVisibility";
 export type UsageOption =
   | "global"
   | "my-usage"
@@ -20,6 +21,8 @@ export interface UsageViewSelectProps {
   userRole: string | null;
   canViewTagUsage?: boolean;
   isOrgAdmin?: boolean;
+  /** Views left out of the picker. Defaults to HIDDEN_USAGE_VIEWS. */
+  hiddenOptions?: ReadonlySet<string>;
   title?: string;
   description?: string;
   "data-id"?: string;
@@ -110,6 +113,7 @@ export const UsageViewSelect: React.FC<UsageViewSelectProps> = ({
   userRole,
   canViewTagUsage = false,
   isOrgAdmin = false,
+  hiddenOptions = HIDDEN_USAGE_VIEWS,
   title = "Usage View",
   description = "Select the usage data you want to view",
   "data-id": dataId,
@@ -117,6 +121,9 @@ export const UsageViewSelect: React.FC<UsageViewSelectProps> = ({
   const isAdmin = all_admin_roles.includes(userRole ?? "");
   const getFilteredOptions = () => {
     return OPTIONS.filter((option) => {
+      if (hiddenOptions.has(option.value)) {
+        return false;
+      }
       if (option.capability) {
         return hasCapability(userRole, option.capability, isOrgAdmin);
       }

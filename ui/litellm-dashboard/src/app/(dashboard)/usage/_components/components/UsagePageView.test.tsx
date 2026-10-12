@@ -11,6 +11,7 @@ import { renderWithProviders } from "@/../tests/test-utils";
 import type { Organization } from "@/components/networking";
 import * as networking from "@/components/networking";
 import UsagePage from "./UsagePageView";
+import { USAGE_PAGE_VISIBILITY } from "./usageVisibility";
 
 // Polyfill ResizeObserver for test environment
 beforeAll(() => {
@@ -1141,7 +1142,19 @@ describe("UsagePage", () => {
   });
 
   describe("MCP Server Activity tab", () => {
-    it("should render MCP Server Activity tab", async () => {
+    it("hides the MCP Server Activity tab and the Ask AI button", async () => {
+      renderWithProviders(<UsagePage {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(mockUserDailyActivityAggregatedCall).toHaveBeenCalled();
+      });
+
+      expect(screen.queryByText("MCP Server Activity")).not.toBeInTheDocument();
+      expect(screen.queryByText("Ask AI")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("usage-ai-chat-panel")).not.toBeInTheDocument();
+    });
+
+    it.skipIf(!USAGE_PAGE_VISIBILITY.mcpServerActivity)("should render MCP Server Activity tab", async () => {
       renderWithProviders(<UsagePage {...defaultProps} />);
 
       await waitFor(() => {
@@ -1186,7 +1199,7 @@ describe("UsagePage", () => {
     });
   });
 
-  describe("Ask AI button", () => {
+  describe.skipIf(!USAGE_PAGE_VISIBILITY.askAi)("Ask AI button", () => {
     it("should render Ask AI button in global view", async () => {
       renderWithProviders(<UsagePage {...defaultProps} />);
 
@@ -1361,7 +1374,6 @@ describe("UsagePage", () => {
       expect(screen.getByText("Cost")).toBeInTheDocument();
       expect(screen.getByText("Model Activity")).toBeInTheDocument();
       expect(screen.getByText("Key Activity")).toBeInTheDocument();
-      expect(screen.getByText("MCP Server Activity")).toBeInTheDocument();
       expect(screen.getByText("Endpoint Activity")).toBeInTheDocument();
     });
   });

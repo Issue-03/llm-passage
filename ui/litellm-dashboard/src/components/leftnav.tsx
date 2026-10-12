@@ -113,7 +113,7 @@ interface MenuGroup {
 // icons changed to lucide as part of the sidebar redesign.
 // Sections and pages hidden from the sidebar. Their URLs show a 404 (see isHiddenRoute);
 // delete an entry here to bring a page back.
-const HIDDEN_GROUPS: ReadonlySet<string> = new Set(["OBSERVABILITY", "DEVELOPER TOOLS", "SETTINGS"]);
+const HIDDEN_GROUPS: ReadonlySet<string> = new Set(["DEVELOPER TOOLS", "SETTINGS"]);
 const HIDDEN_ITEMS: ReadonlySet<string> = new Set([
   "agentic",
   "mcp-servers",
@@ -121,6 +121,11 @@ const HIDDEN_ITEMS: ReadonlySet<string> = new Set([
   "policies",
   "tools",
   "guardrails",
+  // Observability: only Usage is shown.
+  "model-insights",
+  "cost-optimization",
+  "logs",
+  "guardrails-monitor",
   "projects",
   "organizations",
   "access-groups",

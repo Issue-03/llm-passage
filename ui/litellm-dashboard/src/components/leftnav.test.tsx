@@ -121,7 +121,7 @@ describe("Sidebar (leftnav)", () => {
   it("hides the trimmed sections and pages by default", () => {
     renderWithProviders(<Sidebar collapsed={false} />);
 
-    for (const label of ["Virtual Keys", "Playground", "Models + Endpoints", "Teams", "Internal Users"]) {
+    for (const label of ["Virtual Keys", "Playground", "Models + Endpoints", "Usage", "Teams", "Internal Users"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
     for (const label of [
@@ -131,9 +131,10 @@ describe("Sidebar (leftnav)", () => {
       "Policies",
       "Tools",
       "Guardrails",
-      "Usage",
       "Logs",
+      "Model Leaderboard",
       "Cost Optimization",
+      "Guardrails Monitor",
       "Projects",
       "Organizations",
       "Access Groups",
@@ -658,12 +659,17 @@ describe("getBreadcrumb", () => {
 });
 
 describe("isHiddenRoute", () => {
-  it.each(["/ui/", "/ui/api-keys", "/ui/playground", "/ui/models-and-endpoints", "/ui/teams", "/ui/users"])(
-    "keeps sidebar page %s reachable",
-    (pathname) => {
-      expect(isHiddenRoute(pathname)).toBe(false);
-    },
-  );
+  it.each([
+    "/ui/",
+    "/ui/api-keys",
+    "/ui/playground",
+    "/ui/models-and-endpoints",
+    "/ui/usage",
+    "/ui/teams",
+    "/ui/users",
+  ])("keeps sidebar page %s reachable", (pathname) => {
+    expect(isHiddenRoute(pathname)).toBe(false);
+  });
 
   it("keeps change-password reachable", () => {
     expect(isHiddenRoute("/ui/change-password")).toBe(false);

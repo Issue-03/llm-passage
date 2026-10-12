@@ -218,16 +218,19 @@ After each batch: tests for the touched files (`LANG=en_US.UTF-8`), lint, build,
 ### Hidden (commit `80f1424`, pushed 2026-10-04; Agent Builder added later, see below)
 
 **Sidebar:** these lists sit at the top of `ui/litellm-dashboard/src/components/leftnav.tsx`; delete an entry to bring it back.
-- `HIDDEN_GROUPS`: three whole sections:
-  - **Observability** (Usage, Model Leaderboard, Cost Optimization, Logs, Guardrails Monitor)
+- `HIDDEN_GROUPS`: two whole sections (Observability was here too until 2026-10-12, see below):
   - **Developer Tools** (API Reference, AI Hub, Response Cache, Experimental)
   - **Settings** (Router Settings, Logging & Alerts, Admin Settings, Cost Tracking, UI Theme)
 - `HIDDEN_ITEMS`:
   - Platform (was AI Gateway): Agentic, MCP Servers, Skills, Policies, Tools, Guardrails (hidden 2026-10-04, after `8563f42`)
   - Teams & Users (was Access Control): Projects, Organizations, Access Groups, Budgets
+  - Observability: Model Leaderboard, Cost Optimization, Logs, Guardrails Monitor (2026-10-12: the section is shown again with **Usage** only)
 
 **What's still in the sidebar:**
 - Platform: Virtual Keys, Playground, Models + Endpoints
+- Observability: Usage (brought back 2026-10-12; `/ui/usage` works again, the other Observability URLs still 404)
+  - Inside Usage, hidden through `USAGE_PAGE_VISIBILITY` in `usage/_components/components/usageVisibility.ts`: the "MCP Server Activity" tab and the "Ask AI" button + chat panel. Removed: the "Get Started by Tracking cost per … here" line in the team/tag views (it linked to `docs.litellm.ai`). Left for Phase 3: the internal team id `litellm-dashboard` filter in `EntityUsage.tsx` (not shown to users).
+  - The "Usage View" picker hides Organization, Agent (A2A), Customer and User Agent Activity through `HIDDEN_USAGE_VIEWS` in the same file (`UsageViewSelect` takes a `hiddenOptions` prop; its role tests pass an empty set). Left: Global / Your Usage, Team, Tag, User.
 - Teams & Users: Teams, Internal Users
 
 `Sidebar` accepts `hiddenGroups` / `hiddenItems` props. The sidebar tests pass empty sets so the role and permission rules are still tested against the full menu, and a separate test checks the default hiding.
