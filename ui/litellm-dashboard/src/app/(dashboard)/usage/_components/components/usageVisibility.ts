@@ -10,6 +10,8 @@ export const USAGE_PAGE_VISIBILITY = {
   activityTabs: false,
   /** Spend by Provider "Show Zero Spend" / "Show Unknown" toggles. Hidden, so both stay off. */
   providerFilterToggles: false,
+  /** "Cache Read Tokens" / "Cache Write Tokens" cards in the Total Tokens breakdown. */
+  cacheTokens: false,
 } as const;
 
 /** "Usage View" options hidden from the picker; delete an entry to bring the view back. */

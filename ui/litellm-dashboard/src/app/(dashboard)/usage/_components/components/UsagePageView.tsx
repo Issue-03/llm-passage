@@ -662,7 +662,9 @@ const UsagePage: React.FC<UsagePageProps> = ({
                             </ShadcnCard>
                           </div>
                           {showTokenBreakdown && (
-                            <div className="grid grid-cols-4 gap-4 mt-4">
+                            <div
+                              className={`grid gap-4 mt-4 ${USAGE_PAGE_VISIBILITY.cacheTokens ? "grid-cols-4" : "grid-cols-2"}`}
+                            >
                               <ShadcnCard>
                                 <CardContent>
                                   <h3 className="text-lg font-medium text-foreground">Input Tokens</h3>
@@ -679,22 +681,27 @@ const UsagePage: React.FC<UsagePageProps> = ({
                                   </p>
                                 </CardContent>
                               </ShadcnCard>
-                              <ShadcnCard>
-                                <CardContent>
-                                  <h3 className="text-lg font-medium text-foreground">Cache Read Tokens</h3>
-                                  <p className="text-2xl font-bold mt-2 text-success">
-                                    {userSpendData.metadata?.total_cache_read_input_tokens?.toLocaleString() || 0}
-                                  </p>
-                                </CardContent>
-                              </ShadcnCard>
-                              <ShadcnCard>
-                                <CardContent>
-                                  <h3 className="text-lg font-medium text-foreground">Cache Write Tokens</h3>
-                                  <p className="text-2xl font-bold mt-2 text-purple-600">
-                                    {userSpendData.metadata?.total_cache_creation_input_tokens?.toLocaleString() || 0}
-                                  </p>
-                                </CardContent>
-                              </ShadcnCard>
+                              {USAGE_PAGE_VISIBILITY.cacheTokens && (
+                                <>
+                                  <ShadcnCard>
+                                    <CardContent>
+                                      <h3 className="text-lg font-medium text-foreground">Cache Read Tokens</h3>
+                                      <p className="text-2xl font-bold mt-2 text-success">
+                                        {userSpendData.metadata?.total_cache_read_input_tokens?.toLocaleString() || 0}
+                                      </p>
+                                    </CardContent>
+                                  </ShadcnCard>
+                                  <ShadcnCard>
+                                    <CardContent>
+                                      <h3 className="text-lg font-medium text-foreground">Cache Write Tokens</h3>
+                                      <p className="text-2xl font-bold mt-2 text-purple-600">
+                                        {userSpendData.metadata?.total_cache_creation_input_tokens?.toLocaleString() ||
+                                          0}
+                                      </p>
+                                    </CardContent>
+                                  </ShadcnCard>
+                                </>
+                              )}
                             </div>
                           )}
                         </CardContent>

@@ -1159,6 +1159,21 @@ describe("UsagePage", () => {
     expect(screen.getByText("Export Data")).toBeInTheDocument();
   });
 
+  it("shows Input and Output Tokens but not the cache token cards in the Total Tokens breakdown", async () => {
+    renderWithProviders(<UsagePage {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(mockUserDailyActivityAggregatedCall).toHaveBeenCalled();
+    });
+
+    fireEvent.click(screen.getByText("Total Tokens"));
+
+    expect(await screen.findByText("Input Tokens")).toBeInTheDocument();
+    expect(screen.getByText("Output Tokens")).toBeInTheDocument();
+    expect(screen.queryByText("Cache Read Tokens")).not.toBeInTheDocument();
+    expect(screen.queryByText("Cache Write Tokens")).not.toBeInTheDocument();
+  });
+
   describe("MCP Server Activity tab", () => {
     it("hides the MCP Server Activity tab and the Ask AI button", async () => {
       renderWithProviders(<UsagePage {...defaultProps} />);
