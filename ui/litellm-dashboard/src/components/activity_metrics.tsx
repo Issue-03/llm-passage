@@ -19,6 +19,7 @@ import KeyModelUsageView from "./UsagePage/components/KeyModelUsageView";
 import { keyActivityLabel } from "./UsagePage/keyActivityLabel";
 import { DailyData, KeyMetricWithMetadata, ModelActivityData, TopApiKeyData, TopModelData } from "./UsagePage/types";
 import { averageResponseTimeMs, formatResponseTime, valueFormatter } from "./UsagePage/utils/value_formatters";
+import { isInternalKeyId } from "@/components/UsagePage/internalKeys";
 
 interface ActivityMetricsProps {
   modelMetrics: Record<string, ModelActivityData>;
@@ -516,6 +517,7 @@ export const processActivityData = (
 
   dailyActivity.results.forEach((day) => {
     Object.entries(day.breakdown[key] || {}).forEach(([model, modelData]) => {
+      if (key === "api_keys" && isInternalKeyId(model)) return;
       if (!modelMetrics[model]) {
         modelMetrics[model] = {
           label:
@@ -586,6 +588,7 @@ export const processActivityData = (
         const modelData = day.breakdown[key]?.[model];
         if (modelData && "api_key_breakdown" in modelData) {
           Object.entries(modelData.api_key_breakdown || {}).forEach(([apiKey, keyData]) => {
+            if (isInternalKeyId(apiKey)) return;
             if (!apiKeyBreakdown[apiKey]) {
               apiKeyBreakdown[apiKey] = {
                 api_key: apiKey,

@@ -351,6 +351,9 @@ describe("UsagePage", () => {
       },
     ],
     organizations: [],
+    // The view tests switch views through the picker, which the page hides by default.
+    showViewSelect: true,
+    showActivityTabs: true,
   };
 
   beforeEach(() => {
@@ -1139,6 +1142,21 @@ describe("UsagePage", () => {
       // Verify second page call
       expect(mockUserDailyActivityCall).toHaveBeenCalledWith("test-token", expect.any(Date), expect.any(Date), 2, null);
     });
+  });
+
+  it("hides the Usage View picker and the activity tabs by default, showing Global Usage cost", async () => {
+    renderWithProviders(<UsagePage {...defaultProps} showViewSelect={undefined} showActivityTabs={undefined} />);
+
+    await waitFor(() => {
+      expect(mockUserDailyActivityAggregatedCall).toHaveBeenCalled();
+    });
+
+    expect(screen.queryByTestId("usage-view-select")).not.toBeInTheDocument();
+    for (const name of ["Cost", "Model Activity", "Key Activity", "Endpoint Activity"]) {
+      expect(screen.queryByRole("tab", { name })).not.toBeInTheDocument();
+    }
+    expect(screen.getByText("Daily Spend")).toBeInTheDocument();
+    expect(screen.getByText("Export Data")).toBeInTheDocument();
   });
 
   describe("MCP Server Activity tab", () => {

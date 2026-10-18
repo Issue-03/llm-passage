@@ -1,6 +1,7 @@
 import { keyActivityLabel } from "@/components/UsagePage/keyActivityLabel";
 import type { TopKeyItem } from "@/components/UsagePage/components/EntityUsage/TopKeyView";
 import { BreakdownMetrics, DailyData, KeyMetricWithMetadata, TagUsage } from "@/components/UsagePage/types";
+import { isInternalKeyId } from "@/components/UsagePage/internalKeys";
 
 export type ExtendedDailyData = DailyData & {
   breakdown: BreakdownMetrics;
@@ -126,6 +127,7 @@ export const getGlobalTopKeys = (results: DailyData[], topKeysLimit: number): To
   });
 
   return Object.entries(keySpend)
+    .filter(([api_key]) => !isInternalKeyId(api_key))
     .map(([api_key, metrics]) => ({
       api_key,
       key_alias: keyActivityLabel(metrics.metadata),
@@ -192,6 +194,7 @@ export const getTopAPIKeys = (results: ExtendedDailyData[], topKeysLimit: number
   });
 
   return Object.entries(keySpend)
+    .filter(([api_key]) => !isInternalKeyId(api_key))
     .map(([api_key, metrics]) => ({
       api_key,
       key_alias: keyActivityLabel(metrics.metadata),

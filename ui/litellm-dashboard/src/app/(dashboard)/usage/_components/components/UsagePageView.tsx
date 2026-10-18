@@ -71,9 +71,18 @@ import { UsageOption, UsageViewSelect } from "./UsageViewSelect/UsageViewSelect"
 interface UsagePageProps {
   teams: Team[];
   organizations: Organization[];
+  /** Show the "Usage View" picker. Defaults to USAGE_PAGE_VISIBILITY.viewSelect. */
+  showViewSelect?: boolean;
+  /** Show the Cost / Model / Key / Endpoint Activity tabs; when hidden only Cost shows. Defaults to USAGE_PAGE_VISIBILITY.activityTabs. */
+  showActivityTabs?: boolean;
 }
 
-const UsagePage: React.FC<UsagePageProps> = ({ teams, organizations }) => {
+const UsagePage: React.FC<UsagePageProps> = ({
+  teams,
+  organizations,
+  showViewSelect = USAGE_PAGE_VISIBILITY.viewSelect,
+  showActivityTabs = USAGE_PAGE_VISIBILITY.activityTabs,
+}) => {
   const { accessToken, userRole, userId: userID, premiumUser } = useAuthorized();
   // Aggregated endpoint: try first, fall back to paginated if unavailable
   const [aggregatedData, setAggregatedData] = useState<FetchedForRange<{
@@ -445,14 +454,18 @@ const UsagePage: React.FC<UsagePageProps> = ({ teams, organizations }) => {
       <div className="flex items-end justify-between gap-6 mb-6">
         <div className="flex-1">
           <div className="flex items-end justify-between gap-6 mb-4 w-full">
-            <UsageViewSelect
-              value={usageView}
-              onChange={(value) => setUsageView(value)}
-              userRole={userRole}
-              canViewTagUsage={canViewTagUsage}
-              isOrgAdmin={isOrgAdmin}
-            />
-            <AdvancedDatePicker value={dateValue} onValueChange={handleDateChange} />
+            {showViewSelect && (
+              <UsageViewSelect
+                value={usageView}
+                onChange={(value) => setUsageView(value)}
+                userRole={userRole}
+                canViewTagUsage={canViewTagUsage}
+                isOrgAdmin={isOrgAdmin}
+              />
+            )}
+            <div className="ml-auto">
+              <AdvancedDatePicker value={dateValue} onValueChange={handleDateChange} />
+            </div>
           </div>
           <PaginationStatusAlerts
             isFetchingMore={paginatedResult.isFetchingMore}
@@ -472,26 +485,28 @@ const UsagePage: React.FC<UsagePageProps> = ({ teams, organizations }) => {
               )}
               <Tabs defaultValue="cost">
                 <div className="flex justify-between items-center">
-                  <TabsList className="mt-1">
-                    <TabsTrigger value="cost" className="flex-none px-3">
-                      Cost
-                    </TabsTrigger>
-                    <TabsTrigger value="models" className="flex-none px-3">
-                      Model Activity
-                    </TabsTrigger>
-                    <TabsTrigger value="keys" className="flex-none px-3">
-                      Key Activity
-                    </TabsTrigger>
-                    {USAGE_PAGE_VISIBILITY.mcpServerActivity && (
-                      <TabsTrigger value="mcp" className="flex-none px-3">
-                        MCP Server Activity
+                  {showActivityTabs && (
+                    <TabsList className="mt-1">
+                      <TabsTrigger value="cost" className="flex-none px-3">
+                        Cost
                       </TabsTrigger>
-                    )}
-                    <TabsTrigger value="endpoints" className="flex-none px-3">
-                      Endpoint Activity
-                    </TabsTrigger>
-                  </TabsList>
-                  <div className="flex items-center gap-2">
+                      <TabsTrigger value="models" className="flex-none px-3">
+                        Model Activity
+                      </TabsTrigger>
+                      <TabsTrigger value="keys" className="flex-none px-3">
+                        Key Activity
+                      </TabsTrigger>
+                      {USAGE_PAGE_VISIBILITY.mcpServerActivity && (
+                        <TabsTrigger value="mcp" className="flex-none px-3">
+                          MCP Server Activity
+                        </TabsTrigger>
+                      )}
+                      <TabsTrigger value="endpoints" className="flex-none px-3">
+                        Endpoint Activity
+                      </TabsTrigger>
+                    </TabsList>
+                  )}
+                  <div className="ml-auto flex items-center gap-2">
                     {USAGE_PAGE_VISIBILITY.askAi && (
                       <Button variant="outline" onClick={() => setIsAiChatOpen(true)}>
                         <Sparkles />
@@ -859,23 +874,27 @@ const UsagePage: React.FC<UsagePageProps> = ({ teams, organizations }) => {
                 </TabsContent>
 
                 {/* Activity Panel */}
-                <TabsContent value="models" keepMounted>
-                  <div className="flex justify-end mt-2 mb-4">
-                    <ModelViewToggle value={modelViewType} onChange={setModelViewType} />
-                  </div>
-                  <ActivityMetrics modelMetrics={modelMetrics} />
-                </TabsContent>
-                <TabsContent value="keys" keepMounted>
-                  <KeyActivityPanel keyMetrics={keyMetrics} />
-                </TabsContent>
-                {USAGE_PAGE_VISIBILITY.mcpServerActivity && (
-                  <TabsContent value="mcp" keepMounted>
-                    <ActivityMetrics modelMetrics={mcpServerMetrics} />
-                  </TabsContent>
+                {showActivityTabs && (
+                  <>
+                    <TabsContent value="models" keepMounted>
+                      <div className="flex justify-end mt-2 mb-4">
+                        <ModelViewToggle value={modelViewType} onChange={setModelViewType} />
+                      </div>
+                      <ActivityMetrics modelMetrics={modelMetrics} />
+                    </TabsContent>
+                    <TabsContent value="keys" keepMounted>
+                      <KeyActivityPanel keyMetrics={keyMetrics} />
+                    </TabsContent>
+                    {USAGE_PAGE_VISIBILITY.mcpServerActivity && (
+                      <TabsContent value="mcp" keepMounted>
+                        <ActivityMetrics modelMetrics={mcpServerMetrics} />
+                      </TabsContent>
+                    )}
+                    <TabsContent value="endpoints" keepMounted>
+                      <EndpointUsage userSpendData={userSpendData} />
+                    </TabsContent>
+                  </>
                 )}
-                <TabsContent value="endpoints" keepMounted>
-                  <EndpointUsage userSpendData={userSpendData} />
-                </TabsContent>
               </Tabs>
             </>
           )}

@@ -4,6 +4,10 @@ export const USAGE_PAGE_VISIBILITY = {
   mcpServerActivity: false,
   /** "Ask AI" button and its chat panel. */
   askAi: false,
+  /** "Usage View" picker. Hidden, so the page always shows Global Usage (a non-admin's own usage). */
+  viewSelect: false,
+  /** Cost / Model Activity / Key Activity / Endpoint Activity tab strip. Hidden, so only Cost shows. */
+  activityTabs: false,
 } as const;
 
 /** "Usage View" options hidden from the picker; delete an entry to bring the view back. */

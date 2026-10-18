@@ -671,6 +671,24 @@ describe("processActivityData", () => {
     expect(result["key1"].label).toBe("test-key-1 (team_id: team1)");
   });
 
+  it("leaves the proxy's placeholder key ids (master key, health checks) out of key activity", () => {
+    const metrics = mockDailyActivity.results[0].metrics;
+    const withInternal: { results: DailyData[] } = {
+      results: [
+        createMockDailyData("2025-01-01", metrics, {
+          ...EMPTY_BREAKDOWN,
+          api_keys: {
+            key1: createMockKeyMetricWithMetadata({ key_alias: "test-key-1" }, metrics),
+            litellm_proxy_master_key: createMockKeyMetricWithMetadata({}, metrics),
+            "litellm-internal-health-check": createMockKeyMetricWithMetadata({}, metrics),
+          },
+        }),
+      ],
+    };
+
+    expect(Object.keys(processActivityData(withInternal, "api_keys"))).toEqual(["key1"]);
+  });
+
   it("retains the api key metadata so key activity can be searched by user", () => {
     const metadata = { key_alias: "test-key-1", team_id: "team1", user_id: "user-1", user_email: "user1@example.com" };
     const withUser: { results: DailyData[] } = {

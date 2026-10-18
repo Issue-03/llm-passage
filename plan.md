@@ -231,6 +231,9 @@ After each batch: tests for the touched files (`LANG=en_US.UTF-8`), lint, build,
 - Observability: Usage (brought back 2026-10-12; `/ui/usage` works again, the other Observability URLs still 404)
   - Inside Usage, hidden through `USAGE_PAGE_VISIBILITY` in `usage/_components/components/usageVisibility.ts`: the "MCP Server Activity" tab and the "Ask AI" button + chat panel. Removed: the "Get Started by Tracking cost per … here" line in the team/tag views (it linked to `docs.litellm.ai`). Left for Phase 3: the internal team id `litellm-dashboard` filter in `EntityUsage.tsx` (not shown to users).
   - The "Usage View" picker hides Organization, Agent (A2A), Customer and User Agent Activity through `HIDDEN_USAGE_VIEWS` in the same file (`UsageViewSelect` takes a `hiddenOptions` prop; its role tests pass an empty set). Left: Global / Your Usage, Team, Tag, User.
+  - Later (2026-10-19) the whole "Usage View" picker was hidden (`USAGE_PAGE_VISIBILITY.viewSelect = false`; `UsagePageView` takes a `showViewSelect` prop, which the view tests set). The page always opens on Global Usage; for a non-admin that is their own usage. The date range picker stays on the right.
+  - The Cost / Model Activity / Key Activity / Endpoint Activity tab strip is hidden too (`USAGE_PAGE_VISIBILITY.activityTabs = false`, `showActivityTabs` prop), so the page shows only the Cost view; the other three views are not rendered. Export Data stays on the right.
+  - Per-key lists (Top Virtual Keys in Global and Team/Tag views, Key Activity tab, per-model "Top Virtual Keys by Spend") leave out the proxy's placeholder key ids: `litellm_proxy_master_key` (master-key requests), `litellm-internal-health-check` (health checks), `litellm-cli`, `litellm_internal_jobs`. The list is `INTERNAL_KEY_IDS` in `components/UsagePage/internalKeys.ts`. Their spend still counts in the totals. Phase 3 renames these constants in `litellm/constants.py`; update this list to the new names then.
 - Teams & Users: Teams, Internal Users
 
 `Sidebar` accepts `hiddenGroups` / `hiddenItems` props. The sidebar tests pass empty sets so the role and permission rules are still tested against the full menu, and a separate test checks the default hiding.
@@ -323,6 +326,13 @@ The model **edit** form (`ModelInfoEditForm.tsx`) still shows its own Guardrails
 
 Hidden through `HIDDEN_MODEL_TABS` in `ui/litellm-dashboard/src/app/(dashboard)/models-and-endpoints/hiddenModelTabs.ts` (delete an entry to bring a tab back): Auto-Routers, Pass-Through Endpoints, Model Retry Settings, Model Group Alias, Model Access Group Budgets, Price Data Reload. Left for an admin: Deployed Models, Add Model, LLM Credentials, Health Status. The page tests mock the list as empty so the role rules are still tested on the full tab set; one test checks the default hiding.
 
+### Upgrade banner removed (2026-10-19)
+
+- The "The latest version is v1.106.0 … Your current version is v1.105.0" banner is gone, along with what fed it: the proxy's `/get/latest_release_info` endpoint (`ui_crud_endpoints/latest_release_endpoints.py`), which fetched `https://api.github.com/repos/BerriAI/litellm/releases/latest`. So the proxy no longer contacts GitHub for this.
+- Deleted: `UpgradeBanner.tsx`, `hooks/latestRelease/useLatestReleaseInfo.ts`, `utils/versionUtils.ts` (only the banner used it), and their tests; the route is out of `_types.py` and its route-check test.
+- Left: the generated API types (`lib/http/schema.d.ts`) still list the endpoint until they are regenerated in Phase 3.
+- To track upstream security fixes, check https://github.com/BerriAI/litellm/releases by hand.
+
 ### Still to decide
 
 - Policies → Attachments still shows an "Enterprise Feature Notice" box.
@@ -348,7 +358,7 @@ Done as a separate project once the UI is settled. Scale: about 90,000 mentions 
    - the UI's remaining internal identifiers, `assetPrefix`, and localStorage keys
 3. **Outside services** get their own handling, not the blanket rename:
    - Model price list: it's normally fetched from BerriAI's GitHub, so switch to the bundled local file.
-   - Telemetry and license checks that call BerriAI: turn them off or remove them.
+   - Telemetry and license checks that call BerriAI: turn them off or remove them. (The GitHub latest-release check is already removed, Phase 2.)
    - `docker.litellm.ai` URLs: remove.
    - **Docs links** (219 in the UI, plus backend help text): remove them, or point them at your own docs site. **Undecided.**
 4. **Database:**
