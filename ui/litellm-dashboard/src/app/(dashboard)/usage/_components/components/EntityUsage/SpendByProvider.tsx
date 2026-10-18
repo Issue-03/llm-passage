@@ -8,6 +8,7 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/componen
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import React, { useState } from "react";
+import { USAGE_PAGE_VISIBILITY } from "../usageVisibility";
 import { ProviderLogo } from "@/components/molecules/models/ProviderLogo";
 import { ChartLoader } from "@/components/shared/chart_loader";
 
@@ -24,6 +25,8 @@ interface SpendByProviderProps {
   loading: boolean;
   isDateChanging: boolean;
   providerSpend: ProviderSpendData[];
+  /** Show the "Show Zero Spend" / "Show Unknown" toggles. Defaults to USAGE_PAGE_VISIBILITY.providerFilterToggles. */
+  showFilterToggles?: boolean;
 }
 
 const columns: ColumnDef<ProviderSpendData>[] = [
@@ -63,7 +66,12 @@ const columns: ColumnDef<ProviderSpendData>[] = [
   },
 ];
 
-const SpendByProvider: React.FC<SpendByProviderProps> = ({ loading, isDateChanging, providerSpend }) => {
+const SpendByProvider: React.FC<SpendByProviderProps> = ({
+  loading,
+  isDateChanging,
+  providerSpend,
+  showFilterToggles = USAGE_PAGE_VISIBILITY.providerFilterToggles,
+}) => {
   const [includeZeroSpend, setIncludeZeroSpend] = useState(false);
   const [includeUnknown, setIncludeUnknown] = useState(false);
 
@@ -88,22 +96,24 @@ const SpendByProvider: React.FC<SpendByProviderProps> = ({ loading, isDateChangi
     <Card className="h-full">
       <CardHeader>
         <CardTitle>Spend by Provider</CardTitle>
-        <CardAction className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-foreground">Show Zero Spend</label>
-            <Switch checked={includeZeroSpend} onCheckedChange={setIncludeZeroSpend} />
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              <label className="text-sm text-foreground">Show Unknown</label>
-              <Tooltip>
-                <TooltipTrigger render={<Info className="size-4 text-muted-foreground hover:text-foreground" />} />
-                <TooltipContent>Requests that failed to route to a provider</TooltipContent>
-              </Tooltip>
+        {showFilterToggles && (
+          <CardAction className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-foreground">Show Zero Spend</label>
+              <Switch checked={includeZeroSpend} onCheckedChange={setIncludeZeroSpend} />
             </div>
-            <Switch checked={includeUnknown} onCheckedChange={setIncludeUnknown} />
-          </div>
-        </CardAction>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <label className="text-sm text-foreground">Show Unknown</label>
+                <Tooltip>
+                  <TooltipTrigger render={<Info className="size-4 text-muted-foreground hover:text-foreground" />} />
+                  <TooltipContent>Requests that failed to route to a provider</TooltipContent>
+                </Tooltip>
+              </div>
+              <Switch checked={includeUnknown} onCheckedChange={setIncludeUnknown} />
+            </div>
+          </CardAction>
+        )}
       </CardHeader>
       <CardContent>
         {loading ? (

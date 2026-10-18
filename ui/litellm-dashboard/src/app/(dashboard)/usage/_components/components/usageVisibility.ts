@@ -8,6 +8,8 @@ export const USAGE_PAGE_VISIBILITY = {
   viewSelect: false,
   /** Cost / Model Activity / Key Activity / Endpoint Activity tab strip. Hidden, so only Cost shows. */
   activityTabs: false,
+  /** Spend by Provider "Show Zero Spend" / "Show Unknown" toggles. Hidden, so both stay off. */
+  providerFilterToggles: false,
 } as const;
 
 /** "Usage View" options hidden from the picker; delete an entry to bring the view back. */

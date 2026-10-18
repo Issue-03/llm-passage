@@ -62,14 +62,21 @@ describe("SpendByProvider", () => {
     expect(screen.getByText("Spend by Provider")).toBeInTheDocument();
   });
 
-  it("should display Show Zero Spend toggle", () => {
+  it("hides the Show Zero Spend and Show Unknown toggles by default", () => {
     render(<SpendByProvider loading={false} isDateChanging={false} providerSpend={[]} />);
+    expect(screen.queryByText("Show Zero Spend")).not.toBeInTheDocument();
+    expect(screen.queryByText("Show Unknown")).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+  });
+
+  it("should display Show Zero Spend toggle", () => {
+    render(<SpendByProvider showFilterToggles loading={false} isDateChanging={false} providerSpend={[]} />);
     expect(screen.getByText("Show Zero Spend")).toBeInTheDocument();
     expect(screen.getAllByRole("switch")[0]).toBeInTheDocument();
   });
 
   it("should display Show Unknown toggle", () => {
-    render(<SpendByProvider loading={false} isDateChanging={false} providerSpend={[]} />);
+    render(<SpendByProvider showFilterToggles loading={false} isDateChanging={false} providerSpend={[]} />);
     expect(screen.getByText("Show Unknown")).toBeInTheDocument();
     expect(screen.getAllByRole("switch")[1]).toBeInTheDocument();
   });
@@ -201,7 +208,9 @@ describe("SpendByProvider", () => {
   });
 
   it("should render zero spend as a dash when Show Zero Spend is on", () => {
-    render(<SpendByProvider loading={false} isDateChanging={false} providerSpend={mockProviderSpend} />);
+    render(
+      <SpendByProvider showFilterToggles loading={false} isDateChanging={false} providerSpend={mockProviderSpend} />,
+    );
     fireEvent.click(screen.getAllByRole("switch")[0]);
     expect(screen.getAllByText("google").length).toBeGreaterThan(0);
     expect(screen.getByText("-")).toBeInTheDocument();
@@ -250,7 +259,12 @@ describe("SpendByProvider", () => {
       },
     ];
     const { container } = render(
-      <SpendByProvider loading={false} isDateChanging={false} providerSpend={providerSpendWithUnknown} />,
+      <SpendByProvider
+        showFilterToggles
+        loading={false}
+        isDateChanging={false}
+        providerSpend={providerSpendWithUnknown}
+      />,
     );
 
     expect(container.querySelectorAll(".recharts-pie-sector path")).toHaveLength(1);
