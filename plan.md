@@ -335,7 +335,10 @@ Hidden through `HIDDEN_MODEL_TABS` in `ui/litellm-dashboard/src/app/(dashboard)/
 - Left: the generated API types (`lib/http/schema.d.ts`) still list the endpoint until they are regenerated in Phase 3.
 - To track upstream security fixes, check https://github.com/BerriAI/litellm/releases by hand.
 
-### Still to decide
+### Parked (2026-10-26, revisit after Phase 3)
+
+- "Environment-credential login is enabled" banner: leave, hide, or create a real admin and set `disable_env_credential_login: true`.
+- "No Redis configured" banner: maybe set the disable env var for local use.
 
 - Policies → Attachments still shows an "Enterprise Feature Notice" box.
 - About 50 hard-coded `blue-*` / `indigo-*` classes remain on pages outside the Compliance tab; fix as they're spotted.
@@ -343,9 +346,23 @@ Hidden through `HIDDEN_MODEL_TABS` in `ui/litellm-dashboard/src/app/(dashboard)/
 
 ---
 
-## Phase 3: Code rebrand (later)
+## Phase 3: Code rebrand (in progress on branch `phase-3-code-rebrand`, started 2026-10-26)
 
-Done as a separate project once the UI is settled. Scale: about 90,000 mentions and 383 paths.
+**Decisions (2026-10-26):** names as proposed (display "EmbRouter"; package, CLI and DB `embrouter`; env vars `EMBROUTER_*`); **remove** all docs links; **one** fresh migration and a fresh database. Work happens in this folder (the proxy on :4000 from `main` stops working here until Phase 3 lands); checkpoint commits per step on the branch, no push until asked.
+
+Measured scale: ~170,000 mentions (`litellm` 139k, `LiteLLM` 19k, `Litellm` 5k, `LITELLM` 3k, plus `liteLLM`, the typo `LITTELM`, `lite-llm`), ~7,000 paths, 939 `docs.litellm.ai` links, 537 `github.com/BerriAI/...` links.
+
+**Step order** (each step is a checkpoint commit):
+0. Baseline: record the failing tests and type errors before any change (kept outside the repo).
+1. External references first, before the rename can turn them into fake domains: make the bundled cost map / beta headers / autorouter presets the only source (no BerriAI GitHub fetch), remove the license, `api.litellm.ai`, logo and model-map calls, and remove every `docs.litellm.ai` and `github.com/BerriAI/...` link.
+2. Pre-scan for collisions (e.g. the existing `embrouter` script entry next to `litellm`) and third-party import paths that contain "litellm".
+3. Path renames only (`git mv`), committed alone so git keeps file history.
+4. Content rewrite with a case-sensitive map, then a case-insensitive leftover scan.
+5. Database: rename the Prisma models, squash the 193 migration folders into one, prove nothing is lost (old migrations vs new one on scratch DBs, `pg_dump --schema-only` compared), new `embrouter` database in the existing container (nothing deleted).
+6. Regenerate `uv.lock`, Prisma client, UI lockfile and build; update local `.env` / `config.yaml` names.
+7. Verify against the baseline: tests, `git grep -i litellm` (only LICENSE / NOTICE), proxy chat + UI login on a fresh DB. Add `NOTICE`.
+
+Original outline:
 
 1. **Rename paths, deepest first:**
    - `litellm/` → `embrouter/`
@@ -362,7 +379,7 @@ Done as a separate project once the UI is settled. Scale: about 90,000 mentions 
    - Model price list: it's normally fetched from BerriAI's GitHub, so switch to the bundled local file.
    - Telemetry and license checks that call BerriAI: turn them off or remove them. (The GitHub latest-release check is already removed, Phase 2.)
    - `docker.litellm.ai` URLs: remove.
-   - **Docs links** (219 in the UI, plus backend help text): remove them, or point them at your own docs site. **Undecided.**
+   - **Docs links:** remove them all (decided 2026-10-26).
 4. **Database:**
    - Rename the 87 `LiteLLM_*` Prisma models to `EmbRouter_*` in all 3 copies of `schema.prisma` and in the raw SQL (65 Python files).
    - Squash the 193 migrations into one starting migration (`prisma migrate diff --from-empty`).
@@ -397,7 +414,7 @@ After Phase 3, merging upstream LiteLLM changes is basically impossible. Securit
 
 ## Open questions
 
-1. **Name casing:** display name "EmbRouter"; package, CLI and DB `embrouter`; env vars `EMBROUTER_*`. OK?
+1. **Name casing:** answered 2026-10-26: OK as proposed.
 2. **Logo:** answered. The EMB Global logo is used as is (Phase 1).
-3. **Docs links (Phase 3):** remove them, or point them at your own docs site? Still open. The two Policies-page links are already removed (Phase 2).
-4. **Phase 3 database:** OK to squash the migrations and start with a fresh local database?
+3. **Docs links (Phase 3):** answered 2026-10-26: remove them all.
+4. **Phase 3 database:** answered 2026-10-26: yes, one migration and a fresh database.
