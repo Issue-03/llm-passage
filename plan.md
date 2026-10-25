@@ -364,14 +364,14 @@ Measured scale: ~170,000 mentions (`litellm` 139k, `LiteLLM` 19k, `Litellm` 5k, 
 
 **Progress:**
 - Step 0 (baseline) done: 67,467 pass, 712 fail + 416 errors before any Phase 3 change (missing local Postgres tools, timeouts, enterprise-only tests). Kept in `~/Documents/llm-passage-phase3-baseline/`. Two test files (`proxy/db/test_pgbouncer.py`, `unit/gateway/`) leave helper processes behind and hang full runs; run them separately.
-- Step 1 (external references) committed:
+- Step 1 (external references) done and verified (commit `ddf7e4e`):
   - No remote fetches from BerriAI: empty source URLs mean the bundled cost map, Anthropic beta headers, auto-router presets, blog feed and policy templates are used.
   - Removed: online license check (`license.litellm.ai`), hosted budget default (`api.litellm.ai`), LiteLLM logo and support email in alert emails, model-map link in the startup message.
   - All `docs.litellm.ai` and `github.com/BerriAI/...` links removed (backend messages, docstrings, comments, UI); leftover half-sentences tidied; UI links with meaningful text keep the text, generic docs/help links and buttons removed.
   - "File a bug on GitHub" log link: off unless `LITELLM_BUG_REPORT_ISSUE_URL` is set.
   - Berri AI example emails and support contacts replaced; copyright lines kept.
   - Found: `ui/litellm-dashboard/package.json` / `package-lock.json` are git-ignored (upstream `.gitignore`), so a clean clone can't build the UI. Fix during the rename.
-  - Last full test run was cut short by the hang above; the targeted re-runs of every new failure pass. Confirm with a full run before step 4.
+  - Verified 2026-10-26: full run (without the two hanging files) 68,519 passed vs 67,467 in the baseline; the 22 failures not in the baseline all pass when re-run alone (flaky under parallel load). `test_pgbouncer.py` run alone: same 9 failures as the baseline. `tests/unit/gateway` can't be collected (imports a `gateway` module not in this copy), as in the baseline.
 
 Original outline:
 
