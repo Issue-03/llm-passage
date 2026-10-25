@@ -794,7 +794,7 @@ async def test_vertex_streaming_rate_limit_triggers_midstream_fallback(
 ):
     """Ensure Vertex 429 rate-limit errors raise MidStreamFallbackError, not RateLimitError.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/20870
+
     """
     from litellm.exceptions import MidStreamFallbackError
     from litellm.llms.vertex_ai.common_utils import VertexAIError
@@ -898,7 +898,7 @@ def _bedrock_error_event(exception_type: str):
 async def test_bedrock_midstream_internal_server_error_wraps_for_fallback(
     logging_obj: Logging,
 ):
-    """End-to-end regression for https://github.com/BerriAI/litellm/issues/24608:
+    """Regression test.
     a Bedrock mid-stream internalServerException event (botocore stamps it 400)
     must flow through the real decoder, gain its modeled 500 status, and wrap
     into MidStreamFallbackError so the Router can run streaming fallback.
@@ -1009,7 +1009,7 @@ def _hosted_vllm_stream_wrapper(logging_obj: Logging, error_payload: dict) -> Cu
 
 @pytest.mark.asyncio
 async def test_in_body_stream_error_400_raises_bad_request(logging_obj: Logging):
-    """Regression for https://github.com/BerriAI/litellm/issues/25492: a 400
+    """Regression for a 400
     error returned inside a 200 SSE body must surface as BadRequestError with
     the provider's message, not be parsed as an empty chunk that silently
     ends the stream (and never as an internal MidStreamFallbackError)."""
@@ -2012,7 +2012,7 @@ def test_is_chunk_non_empty_with_empty_tool_calls(
     """
     Test that is_chunk_non_empty returns False when tool_calls is an empty list.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/17425
+
     Empty tool_calls in delta should not be considered non-empty chunks.
     """
     chunk = {
@@ -2049,7 +2049,7 @@ def test_is_chunk_non_empty_with_valid_tool_calls(
     """
     Test that is_chunk_non_empty returns True when tool_calls has valid entries.
 
-    Companion test for https://github.com/BerriAI/litellm/issues/17425
+    Companion test.
     Non-empty tool_calls in delta should be considered non-empty chunks.
     """
     chunk = {
@@ -2229,7 +2229,7 @@ def test_raise_on_model_repetition_tolerates_empty_choices(
     empty_chunk_index: int,
 ):
     """
-    Regression test for https://github.com/BerriAI/litellm/issues/28884
+
 
     Vertex Gemini Flash / Flash Lite with web search streaming emits
     metadata-only and usage-only chunks that carry no choices. These are
@@ -3129,7 +3129,7 @@ _AZURE_CHUNKS_WITH_PROMPT_FILTER = [
 @pytest.mark.asyncio
 async def test_azure_streaming_role_preserved_with_include_usage(sync_mode: bool):
     """
-    Regression test for https://github.com/BerriAI/litellm/issues/24221
+
 
     Azure sends an initial chunk with choices=[] (prompt_filter_results)
     before the first content chunk. With stream_options.include_usage=True,

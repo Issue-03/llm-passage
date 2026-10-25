@@ -1,5 +1,5 @@
 """
-Unit test for https://github.com/BerriAI/litellm/issues/22285
+Unit test.
 
 Verifies that extra_headers passed to image_generation() are forwarded
 to the OpenAI SDK on the openai/litellm_proxy/openai_compatible_providers

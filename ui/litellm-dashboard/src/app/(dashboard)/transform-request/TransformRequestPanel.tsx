@@ -200,20 +200,6 @@ ${formattedBody}
           </CardContent>
         </Card>
       </div>
-      <div className="mt-4 text-right">
-        <p className="text-sm text-muted-foreground">
-          Found an error? File an issue{" "}
-          <a
-            className="underline underline-offset-4"
-            href="https://github.com/BerriAI/litellm/issues"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            here
-          </a>
-          .
-        </p>
-      </div>
     </div>
   );
 };

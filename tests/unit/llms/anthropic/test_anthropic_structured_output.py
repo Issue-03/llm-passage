@@ -20,7 +20,7 @@ class TestAnthropicStructuredOutput:
         Anthropic doesn't support 'maxItems' property for array types in their
         output_format.schema, so we need to filter it out.
 
-        Related issue: https://github.com/BerriAI/litellm/issues/19444
+
         """
         from litellm.llms.anthropic.chat.transformation import AnthropicConfig
 

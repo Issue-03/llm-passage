@@ -3213,7 +3213,7 @@ async def test_backfill_team_member_budget_entries_creates_missing_memberships()
     When backfill_team_member_budget_entries is called, it should create
     team_memberships rows only for members that don't already have one.
 
-    Regression test for: https://github.com/BerriAI/litellm/issues/25506
+
     """
     from unittest.mock import AsyncMock, MagicMock
 
@@ -4163,7 +4163,7 @@ async def test_list_team_v2_org_admin_own_user_id_sees_all_org_teams():
     non-Admin roles) still sees all teams in their organization, not just
     teams they are a direct member of.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/30215
+
     """
     from datetime import datetime
     from unittest.mock import AsyncMock, Mock, patch

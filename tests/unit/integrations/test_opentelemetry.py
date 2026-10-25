@@ -1176,7 +1176,7 @@ class TestOpenTelemetry(unittest.TestCase):
 
         This fixes an issue where UI-configured OTEL settings would default to console
         output instead of sending traces to the configured endpoint.
-        See: https://github.com/BerriAI/litellm/issues/XXXX
+
         """
         # When endpoint is specified without explicit exporter, should auto-infer otlp_http
         config = OpenTelemetryConfig(endpoint="https://otel-collector.example.com:443")
@@ -3052,7 +3052,7 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
     - gen_ai.usage.input_tokens / output_tokens (new naming)
     - gen_ai.response.finish_reasons (JSON array)
 
-    See: https://github.com/BerriAI/litellm/issues/17794
+
     """
 
     def setUp(self):
@@ -3926,7 +3926,7 @@ class TestOpenTelemetryResponsesAPI(unittest.TestCase):
     ``choices``, ``instructions`` instead of ``system_instructions``, and
     ``status`` instead of per-choice ``finish_reason``.
 
-    See: https://github.com/BerriAI/litellm/issues/25840
+
     """
 
     def _base_kwargs(self, **overrides):
@@ -5458,7 +5458,7 @@ class TestGetSpanContextLitellmMetadataFallback(unittest.TestCase):
     instead of litellm_params["metadata"].  _get_span_context() must check
     both locations.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/27934
+
     """
 
     def test_span_context_from_metadata(self):
@@ -5605,7 +5605,7 @@ class TestEndProxySpanLitellmMetadataFallback(unittest.TestCase):
     """
     Tests for _end_proxy_span_from_kwargs() falling back to litellm_metadata.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/27934
+
     """
 
     def test_end_proxy_span_from_metadata(self):

@@ -5,7 +5,7 @@ When the shared session closes (e.g. network interruption, idle timeout),
 add_shared_session_to_data should recreate it instead of permanently
 falling back to per-request connections.
 
-Fixes: https://github.com/BerriAI/litellm/issues/23806
+
 """
 
 import asyncio

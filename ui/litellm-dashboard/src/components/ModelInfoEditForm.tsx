@@ -318,11 +318,7 @@ const Hint: React.FC<{ text: string }> = ({ text }) => (
   </Tooltip>
 );
 
-const DocsHint: React.FC<{ text: string; href: string }> = ({ text, href }) => (
-  <a href={href} target="_blank" rel="noopener noreferrer" onClick={(event) => event.stopPropagation()}>
-    <Hint text={text} />
-  </a>
-);
+const DocsHint: React.FC<{ text: string }> = ({ text }) => <Hint text={text} />;
 
 const ChipList: React.FC<{ values: unknown; emptyLabel: string }> = ({ values, emptyLabel }) => {
   if (!values) {
@@ -568,10 +564,7 @@ const ModelInfoEditForm: React.FC<ModelInfoEditFormProps> = ({
             <div>
               <FieldLabel>
                 Guardrails
-                <DocsHint
-                  text="Apply safety guardrails to this model to filter content or enforce policies"
-                  href="https://docs.litellm.ai/docs/proxy/guardrails/quick_start"
-                />
+                <DocsHint text="Apply safety guardrails to this model to filter content or enforce policies" />
               </FieldLabel>
               {isEditing ? (
                 tagsField(
@@ -589,10 +582,7 @@ const ModelInfoEditForm: React.FC<ModelInfoEditFormProps> = ({
             <div>
               <FieldLabel>
                 Attached Knowledge Bases (RAG)
-                <DocsHint
-                  text="Vector stores used for RAG. Every request to this model will automatically retrieve context from these knowledge bases."
-                  href="https://docs.litellm.ai/docs/completion/knowledgebase"
-                />
+                <DocsHint text="Vector stores used for RAG. Every request to this model will automatically retrieve context from these knowledge bases." />
               </FieldLabel>
               {isEditing ? (
                 <FormField control={form.control} name="vector_store_ids">
@@ -782,10 +772,7 @@ const ModelInfoEditForm: React.FC<ModelInfoEditFormProps> = ({
             <div>
               <FieldLabel>
                 EmbRouter Params
-                <DocsHint
-                  text="Optional litellm params used for making a litellm.completion() call. Some params are automatically added by EmbRouter."
-                  href="https://docs.litellm.ai/docs/completion/input"
-                />
+                <DocsHint text="Optional litellm params used for making a litellm.completion() call. Some params are automatically added by EmbRouter." />
               </FieldLabel>
               {isEditing ? (
                 <FormField control={form.control} name="litellm_extra_params">

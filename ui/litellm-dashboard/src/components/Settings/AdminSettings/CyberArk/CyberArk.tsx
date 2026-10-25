@@ -1,6 +1,6 @@
 "use client";
 
-import { Edit, ExternalLink, Info, KeyRound, PlugZap, Trash2 } from "lucide-react";
+import { Edit, Info, KeyRound, PlugZap, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { testCyberArkConnection } from "@/app/(dashboard)/hooks/configOverrides/cyberArkApi";
@@ -163,17 +163,7 @@ export default function CyberArk() {
             <Alert variant="info">
               <Info />
               <AlertTitle>Configuration changes are hot-reloaded across all proxy instances</AlertTitle>
-              <AlertDescription>
-                <a
-                  href="https://docs.litellm.ai/docs/secret_managers/cyberark"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1"
-                >
-                  View documentation
-                  <ExternalLink className="size-3" />
-                </a>
-              </AlertDescription>
+              <AlertDescription></AlertDescription>
             </Alert>
           )}
 

@@ -1786,7 +1786,7 @@ def convert_to_anthropic_tool_invoke(
     - server_tool_use blocks (id starts with "srvtoolu_")
     - web_search_tool_result blocks (from provider_specific_fields)
 
-    Fixes: https://github.com/BerriAI/litellm/issues/17737
+
     """
     anthropic_tool_invoke: Final[list[AnthropicMessagesToolUseParam | dict[str, object]]] = []
 
@@ -2528,7 +2528,6 @@ def anthropic_messages_pt(
             # Check if tool_calls contain server tool calls (web search, etc.)
             # If so, we need to interleave thinking blocks with tool call groups
             # to preserve the original content block ordering.
-            # Fixes: https://github.com/BerriAI/litellm/issues/23047
             assistant_tool_calls = assistant_content_block.get("tool_calls")
             _has_server_tool_calls = False
             if assistant_tool_calls is not None:
@@ -2733,7 +2732,6 @@ def anthropic_messages_pt(
             if assistant_tool_calls is not None:  # support assistant tool invoke conversion
                 # Get web_search_results and tool_results from provider_specific_fields
                 # for server_tool_use reconstruction.
-                # Fixes: https://github.com/BerriAI/litellm/issues/17737
                 _provider_specific_fields_raw = assistant_content_block.get("provider_specific_fields")
                 _provider_specific_fields: dict[str, Any] = {}
                 if isinstance(_provider_specific_fields_raw, dict):
@@ -3155,7 +3153,7 @@ def cohere_message_pt(messages: list):
 
 def amazon_titan_pt(
     messages: list,
-):  # format - https://github.com/BerriAI/litellm/issues/1896
+):  # format
     """
     Amazon Titan uses 'User:' and 'Bot: in it's prompt template
     """
@@ -3226,7 +3224,6 @@ def _gemini_vision_convert_messages(messages: list):
             if isinstance(message["content"], str):
                 prompt += message["content"]
             elif isinstance(message["content"], list):
-                # see https://docs.litellm.ai/docs/providers/openai#openai-vision-models
                 for element in message["content"]:
                     if isinstance(element, dict):
                         if element["type"] == "text":
@@ -3300,7 +3297,6 @@ def gemini_text_image_pt(messages: list):
         if isinstance(message["content"], str):
             prompt += message["content"]
         elif isinstance(message["content"], list):
-            # see https://docs.litellm.ai/docs/providers/openai#openai-vision-models
             for element in message["content"]:
                 if isinstance(element, dict):
                     if element["type"] == "text":
@@ -3319,7 +3315,6 @@ def azure_text_pt(messages: list):
         if isinstance(message["content"], str):
             prompt += message["content"]
         elif isinstance(message["content"], list):
-            # see https://docs.litellm.ai/docs/providers/openai#openai-vision-models
             for element in message["content"]:
                 if isinstance(element, dict):
                     if element["type"] == "text":
@@ -3491,7 +3486,7 @@ class BedrockImageProcessor:
         - Primary method - uses `mimetypes.guess_all_extensions`
         - Fallback method - uses `get_file_extension_from_mime_type`
 
-        Relevant Issue: https://github.com/BerriAI/litellm/issues/12260
+
 
         `mimetypes` is not available in docker containers, so we fallback to `get_file_extension_from_mime_type`
 
@@ -3683,7 +3678,6 @@ def _convert_to_bedrock_tool_call_invoke(
                         # concatenated in a single arguments string, e.g.
                         #   '{"cmd":"a"}{"cmd":"b"}{"cmd":"c"}'
                         # Split them and emit one toolUse block per object.
-                        # Fixes: https://github.com/BerriAI/litellm/issues/20543
                         parsed_objects = split_concatenated_json_objects(arguments)
                         if parsed_objects:
                             # First object keeps the original tool id.
@@ -4058,7 +4052,7 @@ def _insert_assistant_continue_message(
     """
     Add dummy message between user/tool result blocks.
 
-    Conversation blocks and tool result blocks cannot be provided in the same turn. Issue: https://github.com/BerriAI/litellm/issues/6053
+    Conversation blocks and tool result blocks cannot be provided in the same turn.
     """
     if assistant_continue_message is not None:
         if isinstance(assistant_continue_message, str):
@@ -4097,7 +4091,7 @@ def get_user_message_block_or_continue_message(
     Returns the user content block
     if content block is an empty string, then return the default continue message
 
-    Relevant Issue: https://github.com/BerriAI/litellm/issues/7169
+
     """
     content_block: Final = message.get("content", None)
 
@@ -4275,7 +4269,7 @@ def get_assistant_message_block_or_continue_message(
     Returns the user content block
     if content block is an empty string, then return the default continue message
 
-    Relevant Issue: https://github.com/BerriAI/litellm/issues/7169
+
     """
     content_block: Final = message.get("content", None)
 
@@ -4697,7 +4691,7 @@ class BedrockConverseMessagesProcessor:
 
         Handle error raised by bedrock if thinking blocks are provided for a non-thinking model (e.g. nova with tool use)
 
-        Relevant Issue: https://github.com/BerriAI/litellm/issues/9063
+
         """
         filtered_thinking_blocks: Final = []
         for block in thinking_blocks:
@@ -4727,7 +4721,7 @@ def _bedrock_converse_messages_pt(
 
     - Roles must alternate b/w 'user' and 'model' (same as anthropic -> merge consecutive roles)
     - Please ensure that function response turn comes immediately after a function call turn
-    - Conversation blocks and tool result blocks cannot be provided in the same turn. Issue: https://github.com/BerriAI/litellm/issues/6053
+    - Conversation blocks and tool result blocks cannot be provided in the same turn.
     """
 
     contents: list[BedrockMessageBlock] = []
@@ -5123,7 +5117,6 @@ def _bedrock_tools_pt(tools: list, model: str | None = None) -> list[BedrockTool
         if not (raw_name and str(raw_name).strip()):
             raw_name = f"litellm_unnamed_tool_{tool_idx}"
 
-        # related issue: https://github.com/BerriAI/litellm/issues/5007
         # Bedrock tool names must satisfy pattern: [a-zA-Z][a-zA-Z0-9_-]*
         name = make_valid_bedrock_tool_name(input_tool_name=raw_name)
         if _tool_description:  # bedrock doesn't accept empty "" or None descriptions

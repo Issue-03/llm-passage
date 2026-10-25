@@ -332,7 +332,7 @@ def test_init_guardrails_v2_skips_invalid_guardrail_instead_of_crashing_boot():
     every other, correctly-configured guardrail in the list.
 
     mode="during_call" + on_flagged="inject_system_message" is deliberately NOT used
-    here anymore (maintainer finding on BerriAI/litellm#34940): that combination is
+    here anymore (maintainer finding upstream): that combination is
     now accepted at construction time, since async_moderation_hook already degrades
     it gracefully at runtime instead of needing a config-time rejection.
     """
@@ -395,7 +395,7 @@ def test_init_guardrails_v2_stops_boot_when_a_custom_code_guardrail_does_not_com
 
 def test_init_guardrails_v2_accepts_during_call_advisory_mode():
     """
-    Maintainer finding on BerriAI/litellm#34940: on_flagged='inject_system_message'
+    Maintainer finding: on_flagged='inject_system_message'
     with mode='during_call' must construct successfully now -- async_moderation_hook
     already masks whatever's maskable and falls back to a log-only warning when the
     advisory itself can't be delivered, so rejecting this combination at config time

@@ -612,7 +612,7 @@ def _batches_request_mock() -> MagicMock:
     ],
 )
 async def test_add_litellm_data_to_request_rejects_non_object_metadata(field, value, received_type):
-    """Regression for https://github.com/BerriAI/litellm/issues/37147: a
+    """Regression test.
     non-object metadata was silently dropped with a 200, and a non-object
     litellm_metadata crashed later with a 500 ('str' object has no attribute
     'update'). Both must be a 400 naming the field, like OpenAI returns."""
@@ -2980,7 +2980,7 @@ async def test_add_litellm_metadata_from_request_headers():
     Test that add_litellm_metadata_from_request_headers properly adds litellm metadata from request headers,
     makes an LLM request using base_process_llm_request, sleeps for 3 seconds, and checks standard_logging_payload has spend_logs_metadata from headers
 
-    Relevant issue: https://github.com/BerriAI/litellm/issues/14008
+
     """
     # Set up test logger
     litellm._turn_on_debug()

@@ -114,11 +114,10 @@ The Levo callback is registered in:
 ## Documentation
 
 For detailed documentation, see:
-- [LiteLLM Levo Integration Docs](https://docs.litellm.ai/docs/observability/levo_integration)
 - [Levo Documentation](https://docs.levo.ai)
 
 ## Support
 
 For issues or questions:
-- LiteLLM Issues: https://github.com/BerriAI/litellm/issues
+- LiteLLM
 - Levo Support: support@levo.ai

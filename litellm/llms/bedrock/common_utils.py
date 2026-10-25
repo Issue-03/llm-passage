@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from litellm.types.llms.openai import AllMessageValues
 
 
-_ERROR_REQUEST_URL: Final = "https://docs.litellm.ai/docs"
+_ERROR_REQUEST_URL: Final = "http://localhost"
 _OPENAI_FAMILY_MODEL_RE: Final = re.compile(r"(^|[./])openai\.")
 
 
@@ -326,7 +326,7 @@ def normalize_custom_field_on_tools(request_body: dict) -> None:
     Args:
         request_body: The request dictionary to modify in-place.
 
-    Ref: https://github.com/BerriAI/litellm/issues/22847
+
     """
     tools: Final = request_body.get("tools")
     if not tools or not isinstance(tools, list):

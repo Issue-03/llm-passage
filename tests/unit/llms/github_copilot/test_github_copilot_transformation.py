@@ -479,7 +479,7 @@ class TestGithubCopilotTransformResponse:
     Tests for GithubCopilotConfig.transform_response handling of Anthropic-native
     responses from newer Copilot models (e.g. claude-opus-4.7, claude-opus-4.8).
 
-    See: https://github.com/BerriAI/litellm/issues/29391
+
     """
 
     def _make_mock_response(self, json_data: dict, status_code: int = 200):
@@ -829,7 +829,7 @@ class TestGithubCopilotTransformParsedResponseDict:
     transform_response, so this is the seam that repairs empty-choices responses
     from newer Copilot Claude models on the live completion path.
 
-    See: https://github.com/BerriAI/litellm/issues/30927
+
     """
 
     def test_synthesizes_choices_from_anthropic_content(self):
@@ -886,7 +886,7 @@ def test_openai_handler_repairs_github_copilot_empty_choices(
     transform_parsed_response_dict first. Removing that wiring (or resolving a
     config without the override) fails this test with APIError.
 
-    See: https://github.com/BerriAI/litellm/issues/30927
+
     """
     from litellm.llms.openai.openai import OpenAIChatCompletion
 

@@ -263,7 +263,7 @@ def test_stream_requires_guardrail_translation_route_detection():
 @pytest.mark.asyncio
 async def test_post_call_stream_guardrail_blocks_anthropic_messages_stream(monkeypatch):
     """
-    Regression test for https://github.com/BerriAI/litellm/issues/35257.
+
 
     /v1/messages streams raw Anthropic SSE bytes. A guardrail whose custom
     iterator hook only understands OpenAI ModelResponseStream chunks used to

@@ -42,7 +42,7 @@ const renderViewer = (props: Record<string, unknown>) =>
         serverId="srv-1"
         accessToken="litellm-key"
         userRole="admin"
-        userID="tin@berri.ai"
+        userID="user@example.com"
         serverAlias="slack"
         auth_type="oauth2"
         tokenUrl={TOKEN_URL}

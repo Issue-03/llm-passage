@@ -229,7 +229,7 @@ def test_anthropic_experimental_pass_through_messages_handler_custom_llm_provide
     Test that litellm.completion is called when a custom LLM provider is given.
 
     Provider resolution now happens exactly once, inside litellm.completion itself
-    (BerriAI/litellm#37716), so the handler passes the original unresolved model through.
+    (upstream #37716), so the handler passes the original unresolved model through.
     """
     from litellm.llms.anthropic.pass_through.messages.handler import (
         anthropic_messages_handler,
@@ -757,7 +757,7 @@ def test_handler_flattens_replayed_unencrypted_web_search_results():
                             "content": [
                                 {
                                     "type": "web_search_result",
-                                    "url": "https://github.com/BerriAI/litellm/releases",
+                                    "url": "",
                                     "title": "Releases",
                                     "page_age": None,
                                     "encrypted_content": "",
@@ -1037,7 +1037,7 @@ def test_first_party_claude_4_8_plus_cost_map_entries_carry_mid_conversation_sys
 )
 async def test_messages_strips_provider_prefix_exactly_once(requested_model, expected_wire_model, expected_url):
     """
-    BerriAI/litellm#37716: only the leading provider segment may be stripped on the way upstream.
+    upstream #37716: only the leading provider segment may be stripped on the way upstream.
 
     A multi-segment id such as perplexity/perplexity/kimi-k3 must reach the provider as
     perplexity/kimi-k3, matching what /v1/chat/completions and /v1/responses already send.
@@ -1130,7 +1130,7 @@ async def test_native_messages_strips_replayed_provider_specific_fields_from_wir
 )
 async def test_messages_streaming_reports_provider_local_model(requested_model, expected_reported_model):
     """
-    BerriAI/litellm#37716: the wire keeps every segment, so ``message_start`` must still
+    upstream #37716: the wire keeps every segment, so ``message_start`` must still
     report the id the provider itself knows rather than the caller's prefixed deployment id.
     """
 

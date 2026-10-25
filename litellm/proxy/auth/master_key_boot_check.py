@@ -17,7 +17,6 @@ MASTER_KEY_ENV_VAR: Final = "LITELLM_MASTER_KEY"
 SALT_KEY_ENV_VAR: Final = "LITELLM_SALT_KEY"
 MIGRATE_FROM_MASTER_KEY_ENV_VAR: Final = "LITELLM_MIGRATE_FROM_MASTER_KEY"
 PUBLICLY_KNOWN_MASTER_KEYS: Final = frozenset({"sk-1234"})
-ROTATION_DOCS_URL: Final = "https://docs.litellm.ai/docs/proxy/master_key_rotations#proxy-refuses-to-start"
 _NEW_MASTER_KEY: Final = "sk-$(openssl rand -hex 32)"
 GENERATE_MASTER_KEY_COMMAND: Final = f'echo "{MASTER_KEY_ENV_VAR}={_NEW_MASTER_KEY}" | tee -a .env'
 PRINT_NEW_MASTER_KEY_COMMAND: Final = f'echo "{_NEW_MASTER_KEY}"'
@@ -188,7 +187,7 @@ _REPLACE_EXPORTED_KEY_STEP: Final = (
 
 _RESTART_TO_MIGRATE_STEP: Final = (
     "Start the proxy again. It re-encrypts the stored values with the new key, then logs that\n"
-    f"   {MIGRATE_FROM_MASTER_KEY_ENV_VAR} can be removed. Details: {ROTATION_DOCS_URL}"
+    f"   {MIGRATE_FROM_MASTER_KEY_ENV_VAR} can be removed."
 )
 
 _OVERRIDE_HINT: Final = (

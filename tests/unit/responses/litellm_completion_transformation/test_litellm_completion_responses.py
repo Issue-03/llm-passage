@@ -3398,7 +3398,6 @@ class TestStreamingIDConsistency:
         This fixes the issue where text-start, text-delta, and text-end events
         had different IDs, breaking SDK text accumulation.
 
-        Reproduces: https://github.com/BerriAI/litellm/issues/14962
         """
         from unittest.mock import Mock
 

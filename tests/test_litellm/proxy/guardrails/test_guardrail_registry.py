@@ -782,7 +782,7 @@ def _lakera_guardrail(guardrail_id: str, **litellm_params_overrides) -> Guardrai
 
 
 class TestReinitializeGuardrailRestoresOnFailure:
-    """Maintainer finding on BerriAI/litellm#34940: reinitialize_guardrail deletes
+    """Maintainer finding: reinitialize_guardrail deletes
     the old in-memory instance and its callback registration before attempting to
     construct the new one. initialize_guardrail's own ValueError/TypeError
     propagate uncaught, so a rejected hot-reload (e.g. PATCH /guardrails/{id}

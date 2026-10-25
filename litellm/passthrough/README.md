@@ -93,7 +93,7 @@ curl -X POST http://localhost:4000/vllm/classify \
 
 # How to add a provider for passthrough
 
-See [VLLMModelInfo](https://github.com/BerriAI/litellm/blob/main/litellm/llms/vllm/common_utils.py) for an example.
+See VLLMModelInfo for an example.
 
 1. Inherit from BaseModelInfo
 

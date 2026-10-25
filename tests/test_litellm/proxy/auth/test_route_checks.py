@@ -659,7 +659,7 @@ def test_realtime_webrtc_http_routes_classified_as_llm_api(route):
     non-admin virtual keys can call them instead of hitting the admin-only
     401 branch in non_proxy_admin_allowed_routes_check.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/29923
+
     """
 
     assert RouteChecks.is_llm_api_route(route=route) is True
@@ -703,7 +703,7 @@ def test_virtual_key_llm_api_route_includes_passthrough_prefix(route):
     """
     Virtual key with llm_api_routes should allow passthrough routes like /anthropic/v1/messages
 
-    Relevant issue: https://github.com/BerriAI/litellm/issues/14017
+
     """
 
     valid_token = UserAPIKeyAuth(user_id="test_user", allowed_routes=["llm_api_routes"])
@@ -1803,7 +1803,7 @@ def test_videos_route_accessible_to_internal_users():
     Test that internal users can access the videos routes.
 
     This test verifies the fix for issue #16470:
-    https://github.com/BerriAI/litellm/issues/16470
+
 
     Videos routes should be accessible to internal_user role since video generation
     is a legitimate user feature, not a management/admin-only feature.
@@ -2519,7 +2519,7 @@ class TestModelsRouteExemptFromDisableLLMEndpoints:
     should be blocked, but /models and /v1/models should remain accessible because
     they are read-only model listing routes needed by the Admin UI.
 
-    Relevant issue: https://github.com/BerriAI/litellm/issues/new (UI breaks with DISABLE_LLM_ENDPOINTS)
+ (UI breaks with DISABLE_LLM_ENDPOINTS)
     """
 
     def _get_enterprise_route_checks(self):

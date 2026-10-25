@@ -2,7 +2,6 @@
 Tests for Router(plugins=[...]) -- a pipeline of routing plugins that run
 before the routing decision is made, narrowing the candidate deployment pool.
 
-Discussion: https://github.com/BerriAI/litellm/discussions/32168
 """
 
 import pytest
@@ -96,7 +95,7 @@ def _smart_router_model_list():
 @pytest.mark.asyncio
 async def test_routing_plugin_pipeline_matches_jeann2013_e2e_scenario():
     """
-    https://github.com/BerriAI/litellm/discussions/32168#discussioncomment-17608820
+
 
     language plugin -> domain classifier -> tenant policy (openai+anthropic only)
     -> budget policy (drops over-cap models) -> Router picks the best remaining

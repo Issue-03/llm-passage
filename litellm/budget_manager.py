@@ -33,7 +33,9 @@ class BudgetManager:
     ):
         self.client_type = client_type
         self.project_name = project_name
-        self.api_base = api_base or "https://api.litellm.ai"
+        if client_type == "hosted" and not api_base:
+            raise ValueError("BudgetManager(client_type='hosted') needs an api_base; there is no default hosted service.")
+        self.api_base = api_base or ""
         self.headers = headers or {"Content-Type": "application/json"}
         ## load the data or init the initial dictionaries
         self.load_data()
@@ -135,7 +137,7 @@ class BudgetManager:
             model = completion_obj["model"]  # if this throws an error try, model = completion_obj['model']
         else:
             raise ValueError(
-                "Either a chat completion object or the text response needs to be passed in. Learn more - https://docs.litellm.ai/docs/budget_manager"
+                "Either a chat completion object or the text response needs to be passed in."
             )
 
         self.user_dict[user]["current_cost"] = cost + self.user_dict[user].get("current_cost", 0)

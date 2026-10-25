@@ -1,7 +1,7 @@
 """
 Tests for the grace-period key-rotation feature (MLI-6358).
 
-Two bugs are confirmed in LiteLLM v1.83.7-stable (upstream BerriAI/litellm#27193).
+Two bugs are confirmed in LiteLLM v1.83.7-stable (upstream #27193).
 Both live in _lookup_deprecated_key() (litellm/proxy/utils.py):
 
   Bug 1 — duplicate cache read (cosmetic, no functional impact on its own):

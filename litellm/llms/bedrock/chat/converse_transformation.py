@@ -1872,7 +1872,6 @@ class AmazonConverseConfig(BaseConfig):
         #
         # IMPORTANT: Only drop thinking if NO assistant messages have thinking_blocks.
         # If any message has thinking_blocks, we must keep thinking enabled, otherwise
-        # Related issues: https://github.com/BerriAI/litellm/issues/14194
         if (
             optional_params.get("thinking") is not None
             and messages is not None
@@ -2554,7 +2553,7 @@ class AmazonConverseConfig(BaseConfig):
             completion_response: Final = ConverseResponseBlock(**response.json())
         except Exception as e:
             raise BedrockError(
-                message=f"Error converting to valid response block={e}. File an issue if litellm error - https://github.com/BerriAI/litellm/issues",
+                message=f"Error converting to valid response block={e}. File an issue if litellm error",
                 status_code=422,
                 headers=response.headers,
             )

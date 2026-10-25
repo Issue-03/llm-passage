@@ -44,7 +44,6 @@ class TestCustomAuthCommonChecksWarning:
         )
         assert warning is not None
         assert "custom_auth_run_common_checks: true" in warning
-        assert "https://docs.litellm.ai/docs/proxy/custom_auth" in warning
 
     def test_no_warning_when_common_checks_enabled(self):
         assert (
@@ -1285,7 +1284,7 @@ def test_get_model_from_request_extracts_realtime_session_model(route):
     validate the model a restricted key is actually requesting.
 
     Regression test for the model-access bypass on the GA Realtime WebRTC
-    HTTP routes (https://github.com/BerriAI/litellm/issues/29923).
+    HTTP routes.
     """
     assert (
         get_model_from_request(

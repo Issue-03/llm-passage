@@ -276,7 +276,7 @@ async def test_get_user_created_file_ids_remaps_stored_raw_provider_id_to_unifie
     id is the raw provider id (e.g. file-abc). Listing must return the row's
     unified_file_id so callers get ids that work on the managed routes.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/35362.
+
     """
     unified_id = "bGl0ZWxsbV9wcm94eTt1bmlmaWVkX2lkLGRlYWRiZWVm"
     raw_provider_object = _make_file_object("file-raw-provider-123")

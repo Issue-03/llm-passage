@@ -169,19 +169,13 @@ describe("VectorStoreManagement Indexes tab", () => {
     expect(screen.queryByText("Vector Store Management")).not.toBeInTheDocument();
   });
 
-  it("should link to the feature docs and a GitHub issue for unsupported providers on the Indexes tab", async () => {
+  it("explains index provider support on the Indexes tab without external links", async () => {
     const user = userEvent.setup();
     mockIndexesListCall.mockResolvedValue({ object: "list", data: [] });
     render(<VectorStoreManagement accessToken="sk-test" userID="user-1" userRole="Admin" isViewOnly={false} />);
     await user.click(screen.getByRole("tab", { name: "Indexes" }));
-    expect(screen.getByRole("link", { name: "vector store index docs" })).toHaveAttribute(
-      "href",
-      "https://docs.litellm.ai/docs/providers/azure_ai/azure_ai_vector_stores_passthrough",
-    );
-    expect(screen.getByRole("link", { name: "file a GitHub issue" })).toHaveAttribute(
-      "href",
-      "https://github.com/BerriAI/litellm/issues",
-    );
+    expect(screen.queryByRole("link", { name: "vector store index docs" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "file a GitHub issue" })).not.toBeInTheDocument();
     expect(screen.getByText(/supported for Azure AI Search and Milvus today/)).toBeInTheDocument();
   });
 

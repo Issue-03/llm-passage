@@ -177,7 +177,7 @@ export const fetchTeamModels = async (
 
     if (accessToken !== null) {
       const model_available = await modelAvailableCall(accessToken, userID, userRole, true, teamID, true);
-      let available_model_names = model_available["data"].map((element: { id: string }) => element.id);
+      const available_model_names = model_available["data"].map((element: { id: string }) => element.id);
       return available_model_names;
     }
     return [];
@@ -200,7 +200,7 @@ export const fetchUserModels = async (
 
     if (accessToken !== null) {
       const model_available = await modelAvailableCall(accessToken, userID, userRole);
-      let available_model_names = model_available["data"].map((element: { id: string }) => element.id);
+      const available_model_names = model_available["data"].map((element: { id: string }) => element.id);
       setUserModels(available_model_names);
     }
   } catch (error) {
@@ -1258,14 +1258,7 @@ const CreateKey: React.FC<CreateKeyProps> = ({ team, teams, data, addKey, autoOp
                           <span>
                             Guardrails{" "}
                             <SimpleTooltip content="Apply safety guardrails to this key to filter content or enforce policies">
-                              <a
-                                href="https://docs.litellm.ai/docs/proxy/guardrails/quick_start"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()} // Prevent accordion from collapsing when clicking link
-                              >
-                                <Info className="ml-1 inline size-3.5 align-text-bottom" />
-                              </a>
+                              <Info className="ml-1 inline size-3.5 align-text-bottom" />
                             </SimpleTooltip>
                           </span>
                         }
@@ -1298,14 +1291,7 @@ const CreateKey: React.FC<CreateKeyProps> = ({ team, teams, data, addKey, autoOp
                             <span>
                               Disable Global Guardrails{" "}
                               <SimpleTooltip content="When enabled, this key will bypass any guardrails configured to run on every request (global guardrails)">
-                                <a
-                                  href="https://docs.litellm.ai/docs/proxy/guardrails/quick_start"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()} // Prevent accordion from collapsing when clicking link
-                                >
-                                  <Info className="ml-1 inline size-3.5 align-text-bottom" />
-                                </a>
+                                <Info className="ml-1 inline size-3.5 align-text-bottom" />
                               </SimpleTooltip>
                             </span>
                           }
@@ -1334,14 +1320,7 @@ const CreateKey: React.FC<CreateKeyProps> = ({ team, teams, data, addKey, autoOp
                             <span>
                               Policies{" "}
                               <SimpleTooltip content="Apply policies to this key to control guardrails and other settings">
-                                <a
-                                  href="https://docs.litellm.ai/docs/proxy/guardrails/guardrail_policies"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()} // Prevent accordion from collapsing when clicking link
-                                >
-                                  <Info className="ml-1 inline size-3.5 align-text-bottom" />
-                                </a>
+                                <Info className="ml-1 inline size-3.5 align-text-bottom" />
                               </SimpleTooltip>
                             </span>
                           }
@@ -1375,14 +1354,7 @@ const CreateKey: React.FC<CreateKeyProps> = ({ team, teams, data, addKey, autoOp
                             <span>
                               Prompts{" "}
                               <SimpleTooltip content="Allow this key to use specific prompt templates">
-                                <a
-                                  href="https://docs.litellm.ai/docs/proxy/prompt_management"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()} // Prevent accordion from collapsing when clicking link
-                                >
-                                  <Info className="ml-1 inline size-3.5 align-text-bottom" />
-                                </a>
+                                <Info className="ml-1 inline size-3.5 align-text-bottom" />
                               </SimpleTooltip>
                             </span>
                           }
@@ -1436,14 +1408,7 @@ const CreateKey: React.FC<CreateKeyProps> = ({ team, teams, data, addKey, autoOp
                           <span>
                             Allowed Pass Through Routes{" "}
                             <SimpleTooltip content="Allow this key to use specific pass through routes">
-                              <a
-                                href="https://docs.litellm.ai/docs/proxy/pass_through"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()} // Prevent accordion from collapsing when clicking link
-                              >
-                                <Info className="ml-1 inline size-3.5 align-text-bottom" />
-                              </a>
+                              <Info className="ml-1 inline size-3.5 align-text-bottom" />
                             </SimpleTooltip>
                           </span>
                         }

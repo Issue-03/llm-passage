@@ -1,5 +1,5 @@
 """
-Regression tests for https://github.com/BerriAI/litellm/issues/36493
+
 
 /v1/images/edits on the openai path silently dropped unknown provider params
 (e.g. seed) and the extra_body escape hatch, unlike /v1/images/generations.

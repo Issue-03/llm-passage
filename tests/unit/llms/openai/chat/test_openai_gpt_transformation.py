@@ -33,7 +33,7 @@ class TestOpenAIGPTConfig:
     def test_user_param_supported_for_responses_api_models(self):
         """Test that 'user' param is in supported params for responses API models.
 
-        Regression test for: https://github.com/BerriAI/litellm/issues/17633
+
         When using model="openai/responses/gpt-4.1", the 'user' parameter should
         be included in supported params so it reaches OpenAI and SpendLogs.
         """
@@ -102,7 +102,7 @@ class TestGetOptionalParamsIntegration:
     def test_user_in_optional_params_for_responses_model(self):
         """Test that 'user' ends up in optional_params when using responses API models.
 
-        Regression test for: https://github.com/BerriAI/litellm/issues/17633
+
         This verifies the full flow through get_optional_params().
         """
         from litellm.utils import get_optional_params
@@ -279,7 +279,7 @@ class TestOpenAIChatCompletionStreamingHandler:
         """vLLM/sglang return HTTP 200 streams whose body carries the error,
         e.g. data: {"error": {..., "code": 400}}. chunk_parser must surface it
         as a provider error instead of parsing an empty chunk that silently
-        ends the stream (https://github.com/BerriAI/litellm/issues/25492)."""
+        ends the stream."""
         from litellm.llms.openai.common_utils import OpenAIError
 
         handler = OpenAIChatCompletionStreamingHandler(
@@ -742,7 +742,7 @@ class TestGPT5ReasoningEffortPreservation:
 
 class TestCacheControlPreservationForCustomEndpoint:
     """
-    Regression tests for https://github.com/BerriAI/litellm/issues/30319
+
 
     The AnthropicCacheControlHook injects cache_control when a user passes
     cache_control_injection_points, but the base OpenAIGPTConfig used to strip

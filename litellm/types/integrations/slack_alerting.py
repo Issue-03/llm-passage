@@ -35,8 +35,10 @@ class ProviderRegionOutageModel(BaseOutageModel):
 
 
 # we use this for the email header, please send a test email if you change this. verify it looks good on email
-LITELLM_LOGO_URL: Final = "https://litellm-listing.s3.amazonaws.com/litellm_logo.png"
-LITELLM_SUPPORT_CONTACT: Final = "support@berri.ai"
+# No hosted default logo; set EMAIL_LOGO_URL to show one in alert emails.
+LITELLM_LOGO_URL: Final = ""
+# No default support address; set EMAIL_SUPPORT_CONTACT to show one in alert emails.
+LITELLM_SUPPORT_CONTACT: Final = ""
 
 
 class SlackAlertingArgsEnum(Enum):

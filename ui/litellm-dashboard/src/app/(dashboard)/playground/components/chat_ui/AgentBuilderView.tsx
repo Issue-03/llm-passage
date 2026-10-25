@@ -472,8 +472,8 @@ export default function AgentBuilderView({
           <span>
             Agent Builder is experimental and may change or be removed without notice. We’d love your feedback—email us
             at{" "}
-            <a href="mailto:product@berri.ai" className="font-medium text-warning underline hover:text-warning/80">
-              product@berri.ai
+            <a href="mailto:user@example.com" className="font-medium text-warning underline hover:text-warning/80">
+              user@example.com
             </a>
             .
           </span>

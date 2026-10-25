@@ -2,7 +2,6 @@
 import React from "react";
 import CodeBlock from "@/components/CodeBlock";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import DocLink from "./DocLink";
 
 interface ApiRefProps {
   proxySettings: {
@@ -26,12 +25,11 @@ const APIReferenceView: React.FC<ApiRefProps> = ({ proxySettings }) => {
         {/* Header row with Docs link on the right */}
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-foreground">OpenAI Compatible Proxy: API Reference</h1>
-          <DocLink className="ml-3 shrink-0" href="https://docs.litellm.ai/docs/proxy/user_keys" />
         </div>
 
         <p className="mt-2 mb-2 text-sm text-muted-foreground">
-          EmbRouter is OpenAI Compatible. This means your API Key works with the OpenAI SDK. Just replace the base_url to
-          point to your litellm proxy. Example Below{" "}
+          EmbRouter is OpenAI Compatible. This means your API Key works with the OpenAI SDK. Just replace the base_url
+          to point to your litellm proxy. Example Below{" "}
         </p>
 
         <Tabs defaultValue="openai">
@@ -52,7 +50,7 @@ const APIReferenceView: React.FC<ApiRefProps> = ({ proxySettings }) => {
               code={`import openai
 client = openai.OpenAI(
     api_key="your_api_key",
-    base_url="${base_url}" # EmbRouter is OpenAI compatible, Read More: https://docs.litellm.ai/docs/proxy/user_keys
+    base_url="${base_url}" # EmbRouter is OpenAI compatible
 )
 
 response = client.chat.completions.create(

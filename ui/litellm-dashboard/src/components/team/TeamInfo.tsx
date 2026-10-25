@@ -37,7 +37,7 @@ import { SimpleTooltip, TooltipProvider } from "@/components/ui/tooltip";
 import { UiLoadingSpinner } from "@/components/ui/ui-loading-spinner";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { FormField } from "@/components/shared/form/FormField";
-import { labelWithDocsHint, labelWithHint } from "@/components/shared/form/LabelWithHint";
+import { labelWithHint } from "@/components/shared/form/LabelWithHint";
 import { MultiSelect } from "@/components/shared/MultiSelect";
 import { SearchSelect } from "@/components/shared/SearchSelect";
 import { useZodForm } from "@/lib/forms/useZodForm";
@@ -1917,10 +1917,9 @@ const TeamInfoView: React.FC<TeamInfoProps> = ({
                   <FormField
                     control={form.control}
                     name="guardrails"
-                    label={labelWithDocsHint(
+                    label={labelWithHint(
                       "Guardrails",
                       "Select which guardrails apply to this team. Global guardrails are enabled by default, uncheck to opt out. Other guardrails are opt-in.",
-                      "https://docs.litellm.ai/docs/proxy/guardrails/quick_start",
                     )}
                   >
                     {({ id, value, onChange }) => (
@@ -1967,10 +1966,9 @@ const TeamInfoView: React.FC<TeamInfoProps> = ({
                     <FormField
                       control={form.control}
                       name="policies"
-                      label={labelWithDocsHint(
+                      label={labelWithHint(
                         "Policies",
                         "Apply policies to this team to control guardrails and other settings",
-                        "https://docs.litellm.ai/docs/proxy/guardrails/guardrail_policies",
                       )}
                     >
                       {({ id, value, onChange }) => (

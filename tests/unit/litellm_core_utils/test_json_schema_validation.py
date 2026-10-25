@@ -4,7 +4,7 @@ Tests for per-request enable_json_schema_validation parameter.
 Ensures the per-request flag overrides the global litellm.enable_json_schema_validation,
 making JSON schema validation thread-safe for concurrent usage.
 
-Related issue: https://github.com/BerriAI/litellm/issues/XXXX
+
 """
 
 import json

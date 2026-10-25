@@ -5,7 +5,7 @@ Validates fixes for:
 - /spend/calculate response schema (must use proper OpenAPI 3.x content wrapper)
 - /credentials/by_model/{model_id} path parameter (must not leak credential_name)
 
-Related issue: https://github.com/BerriAI/litellm/issues/21305
+
 """
 
 import pytest

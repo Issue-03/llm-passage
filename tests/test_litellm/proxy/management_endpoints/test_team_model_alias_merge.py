@@ -1,7 +1,7 @@
 """
 Tests for atomic team model operations during BYOK model creation.
 
-Regression tests for https://github.com/BerriAI/litellm/issues/22594
+
 Concurrent BYOK model creates must not overwrite each other's entries
 in team.models.
 """

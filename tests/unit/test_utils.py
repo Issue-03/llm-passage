@@ -315,7 +315,7 @@ def test_get_optional_params_image_gen():
 
 @pytest.mark.parametrize("custom_llm_provider", ["openai", "azure"])
 def test_get_optional_params_image_gen_keeps_gpt_image_supported_params(custom_llm_provider):
-    """https://github.com/BerriAI/litellm/issues/38649"""
+    """"""
     from litellm.types.utils import LlmProviders
 
     provider_config = ProviderConfigManager.get_provider_image_generation_config(
@@ -1320,7 +1320,7 @@ def test_check_provider_match_none_value_matches_any_provider():
     key: both mean "no provider constraint" and should match any
     ``custom_llm_provider``.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/28336.
+
     Before the fix, ``register_model`` persisted ``litellm_provider: None``
     via ``get_model_info`` for deployments registered without a provider
     (e.g. ``Router.add_deployment``), which caused ``_check_provider_match``
@@ -2037,7 +2037,7 @@ def test_register_model_openrouter_without_slash():
     """
     Test that register_model handles openrouter models without '/' in the name.
 
-    Fixes https://github.com/BerriAI/litellm/issues/18936
+
 
     Previously, the code did `split_string[1]` which would fail with IndexError
     when the model name didn't contain '/'. Now it uses `split_string[-1]` which
@@ -2855,7 +2855,7 @@ def test_azure_ai_claude_provider_config():
 
 
 # Tests for thinking blocks helper functions
-# Related to issue: https://github.com/BerriAI/litellm/issues/18926
+
 
 
 def test_any_assistant_message_has_thinking_blocks_with_thinking():
@@ -2975,7 +2975,7 @@ class TestAdditionalDropParamsForNonOpenAIProviders:
     """
     Test additional_drop_params functionality for non-OpenAI providers.
 
-    Fixes https://github.com/BerriAI/litellm/issues/19225
+
 
     The bug was that additional_drop_params only filtered params for OpenAI/Azure
     providers, but not for other providers like Bedrock. This caused OpenAI-specific
@@ -3162,7 +3162,7 @@ class TestDropParamsWithPromptCacheKey:
     """
     Test that drop_params: true correctly drops prompt_cache_key for non-OpenAI providers.
 
-    Fixes https://github.com/BerriAI/litellm/issues/19225
+
 
     prompt_cache_key is an OpenAI-specific parameter that should be automatically
     dropped when using providers like Bedrock that don't support it.

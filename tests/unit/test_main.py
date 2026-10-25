@@ -513,7 +513,7 @@ async def test_extra_body_with_fallback(
     respx_mock: respx.MockRouter, set_openrouter_api_key, monkeypatch
 ):
     """
-    test regression for https://github.com/BerriAI/litellm/issues/8425.
+    Regression test.
 
     This was perhaps a wider issue with the acompletion function not passing kwargs such as extra_body correctly when fallbacks are specified.
     """
@@ -862,7 +862,7 @@ def test_responses_api_bridge_check_strips_responses_prefix():
 def test_responses_api_bridge_check_gpt_5_4_pro():
     """Test that gpt-5.4-pro routes through responses API bridge, not chat completions.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/23014
+
     gpt-5.4-pro is a responses-only model and must not be sent to /v1/chat/completions.
     """
     from litellm.main import responses_api_bridge_check
@@ -3194,7 +3194,7 @@ async def test_async_mock_completion_stream_with_model_response():
 class TestCallTypesOCR:
     """Test that OCR call types are properly defined in CallTypes enum.
 
-    Fixes https://github.com/BerriAI/litellm/issues/17381
+
     """
 
     def test_ocr_call_type_exists(self):
@@ -3265,7 +3265,7 @@ def test_stream_chunk_builder_text_completion_combines_text_and_usage():
 
 def test_completion_forwards_store_and_prompt_cache_key_to_openai():
     """
-    Regression test for https://github.com/BerriAI/litellm/issues/33184
+
 
     store and prompt_cache_key are documented OpenAI chat completion params that
     were accepted as supported but silently dropped before the provider request
@@ -3298,7 +3298,7 @@ def test_completion_forwards_store_and_prompt_cache_key_to_openai():
 async def test_acompletion_forwards_store_and_prompt_cache_key_to_openai():
     """
     Async variant of the store/prompt_cache_key forwarding regression test for
-    https://github.com/BerriAI/litellm/issues/33184
+
     """
     from openai import AsyncOpenAI
 

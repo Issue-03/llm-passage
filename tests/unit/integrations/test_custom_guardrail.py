@@ -1202,7 +1202,7 @@ class TestInjectAdvisoryMessage:
 
     def test_prefers_instructions_over_input_for_responses_api(self):
         """
-        Veria-ai finding on BerriAI/litellm#34940: "instructions" is the
+        Veria-ai finding: "instructions" is the
         privileged, developer-set Responses-API field; "input" is caller-
         controlled and a caller could include text telling the model to
         disregard a trailing warning appended there instead. The advisory
@@ -1254,7 +1254,7 @@ class TestInjectAdvisoryMessage:
 
     def test_returns_false_and_does_not_mutate_when_messages_also_present_alongside_structured_input(self):
         """
-        Bugbot finding on BerriAI/litellm#34940: a request can carry both a
+        Bugbot finding: a request can carry both a
         "messages" list and a structured Responses-API "input" list at the
         same time (the raw request body is passed through largely unvalidated).
         The Responses backend reads only "input" in that shape, so a "messages"

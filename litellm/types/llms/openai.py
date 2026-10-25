@@ -1460,7 +1460,7 @@ class ResponsesAPIResponse(BaseLiteLLMOpenAIResponseObject):
         Without this, reasoning items include null fields that cause SDK errors
         (e.g., the OpenAI C# SDK crashes on status=null).
 
-        Issue: https://github.com/BerriAI/litellm/issues/16824
+
         """
         serialized: Final = handler(value)
         if not isinstance(serialized, list):

@@ -5,7 +5,7 @@ This test ensures that the metric names used when creating Prometheus metrics
 match the names defined in DEFINED_PROMETHEUS_METRICS, so that metric filtering
 configuration works correctly.
 
-Related issue: https://github.com/BerriAI/litellm/issues/18221
+
 """
 
 import json

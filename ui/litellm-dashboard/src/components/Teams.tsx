@@ -12,7 +12,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { FormField } from "@/components/shared/form/FormField";
 import { SearchSelect } from "@/components/shared/SearchSelect";
-import { labelWithDocsHint, labelWithHint } from "@/components/shared/form/LabelWithHint";
+import { labelWithHint } from "@/components/shared/form/LabelWithHint";
 import { useZodForm } from "@/lib/forms/useZodForm";
 import { TagsInput } from "@/app/(dashboard)/guardrails/_components/content_filter/TagsInput";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -411,7 +411,7 @@ const Teams: React.FC<TeamProps> = ({ accessToken, userID, userRole, premiumUser
   const handleCreate = async (formValues: Record<string, any>) => {
     try {
       if (accessToken != null) {
-        let organizationId = formValues?.organization_id || currentOrg?.organization_id;
+        const organizationId = formValues?.organization_id || currentOrg?.organization_id;
         if (organizationId === "" || typeof organizationId !== "string") {
           formValues.organization_id = null;
         } else {
@@ -574,7 +574,7 @@ const Teams: React.FC<TeamProps> = ({ accessToken, userID, userRole, premiumUser
       return false;
     }
     for (let i = 0; i < team.members_with_roles.length; i++) {
-      let member = team.members_with_roles[i];
+      const member = team.members_with_roles[i];
       if (member.user_id == userID && member.role == "admin") {
         return true;
       }
@@ -736,10 +736,9 @@ const Teams: React.FC<TeamProps> = ({ accessToken, userID, userRole, premiumUser
                           control={form.control}
                           name="organization_id"
                           className="mt-8"
-                          label={labelWithDocsHint(
+                          label={labelWithHint(
                             "Organization",
                             "Organizations can have multiple teams. Learn more about the user management hierarchy",
-                            "https://docs.litellm.ai/docs/proxy/user_management_heirarchy",
                           )}
                           description={
                             isOrgAdmin && isSingleOrg
@@ -966,11 +965,7 @@ const Teams: React.FC<TeamProps> = ({ accessToken, userID, userRole, premiumUser
                           control={form.control}
                           name="guardrails"
                           className="mt-8"
-                          label={labelWithDocsHint(
-                            "Guardrails",
-                            "Setup your first guardrail",
-                            "https://docs.litellm.ai/docs/proxy/guardrails/quick_start",
-                          )}
+                          label={labelWithHint("Guardrails", "Setup your first guardrail")}
                           description="Select existing guardrails or enter new ones"
                         >
                           {({ id, value, onChange }) => (
@@ -1013,10 +1008,9 @@ const Teams: React.FC<TeamProps> = ({ accessToken, userID, userRole, premiumUser
                             control={form.control}
                             name="policies"
                             className="mt-8"
-                            label={labelWithDocsHint(
+                            label={labelWithHint(
                               "Policies",
                               "Apply policies to this team to control guardrails and other settings",
-                              "https://docs.litellm.ai/docs/proxy/guardrails/guardrail_policies",
                             )}
                             description="Select existing policies or enter new ones"
                           >

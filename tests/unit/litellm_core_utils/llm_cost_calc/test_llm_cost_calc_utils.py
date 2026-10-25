@@ -2099,7 +2099,7 @@ def test_gemini_image_generation_cost_with_zero_text_tokens(_local_model_cost_ma
     Gemini-3-pro-image model - image_tokens were treated as text tokens
     when text_tokens=0.
 
-    https://github.com/BerriAI/litellm/issues/17410
+
     """
 
     custom_llm_provider = "vertex_ai"

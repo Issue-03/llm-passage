@@ -1,7 +1,7 @@
 """
 Tests for Vertex AI partner models count_tokens location resolution.
 
-Ref: https://github.com/BerriAI/litellm/issues/23872
+
 """
 
 import pytest

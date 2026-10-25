@@ -1,7 +1,7 @@
 """
 Test that stream_chunk_builder correctly preserves images from streaming chunks.
 
-This tests the fix for https://github.com/BerriAI/litellm/issues/19478
+Regression test.
 where images from models like gemini-2.5-flash-image were lost when
 rebuilding the response from streaming chunks.
 """

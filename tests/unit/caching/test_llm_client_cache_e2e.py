@@ -10,7 +10,7 @@ sleeps after eviction to let the event loop drain any background close
 tasks — a plain ``assert not client.is_closed`` without sleeping is NOT
 sufficient to catch the regression (the close task runs asynchronously).
 
-See: https://github.com/BerriAI/litellm/pull/22247
+
 """
 
 import asyncio

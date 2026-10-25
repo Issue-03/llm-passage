@@ -109,7 +109,7 @@ def test_azure_ai_validate_environment_with_azure_ad_token():
     Test that when no api_key is provided but Azure AD credentials are available,
     the Authorization header is set with a Bearer token.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/20759
+
     """
     import litellm
 
@@ -405,7 +405,7 @@ def _find_key_anywhere(obj, key: str) -> bool:
 
 def test_azure_ai_strips_non_openai_spec_message_fields():
     """
-    Regression for https://github.com/BerriAI/litellm/issues/33961.
+    Regression test.
 
     Azure AI Foundry backends set additionalProperties=false, so any message
     field outside the OpenAI chat-completions schema causes a 400 "Extra inputs

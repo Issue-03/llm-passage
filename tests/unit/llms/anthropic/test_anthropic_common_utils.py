@@ -1692,7 +1692,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
                         "content": [
                             {
                                 "type": "web_search_result",
-                                "url": "https://github.com/BerriAI/litellm/releases",
+                                "url": "https://github.com/example-org/example-repo/releases",
                                 "title": "Releases",
                                 "page_age": None,
                                 "encrypted_content": "",
@@ -1711,7 +1711,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert [b["type"] for b in out[1]["content"]] == ["text", "text"]
         flattened = out[1]["content"][0]["text"]
         assert "Web search results for 'latest litellm version':" in flattened
-        assert "URL: https://github.com/BerriAI/litellm/releases" in flattened
+        assert "URL: https://github.com/example-org/example-repo/releases" in flattened
         assert "Snippet: Latest release v1.95.0" in flattened
         assert msgs[1]["content"][0]["type"] == "server_tool_use"
 

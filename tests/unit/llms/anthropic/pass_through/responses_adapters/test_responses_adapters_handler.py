@@ -121,7 +121,7 @@ def test_build_responses_kwargs_without_metadata_sets_no_prompt_cache_key():
 )
 async def test_streaming_message_start_reports_the_provider_local_model(requested_model, expected_reported_model):
     """
-    BerriAI/litellm#37716 sends the caller's unresolved id down this bridge so the provider
+    upstream #37716 sends the caller's unresolved id down this bridge so the provider
     resolves it once. ``message_start`` is a reporting field rather than a wire value, so it
     keeps naming the model as the provider knows it, with only the leading provider segment gone.
     """

@@ -6,11 +6,7 @@ import os
 from datetime import datetime
 from typing import TYPE_CHECKING, Final
 
-import httpx
-
 from litellm._logging import verbose_proxy_logger
-from litellm.constants import NON_LLM_CONNECTION_TIMEOUT
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
 
 if TYPE_CHECKING:
     from litellm.proxy._types import EnterpriseLicenseData
@@ -27,12 +23,9 @@ class LicenseCheck:
     - Returns if license is valid
     """
 
-    base_url = "https://license.litellm.ai"
-
     def __init__(self) -> None:
         self.license_str = os.getenv("LITELLM_LICENSE", None)
         verbose_proxy_logger.debug("License Str value - %s", self.license_str)
-        self.http_handler = HTTPHandler(timeout=NON_LLM_CONNECTION_TIMEOUT)
         self._premium_check_logged = False
         self.public_key = None
         self.read_public_key()
@@ -56,46 +49,10 @@ class LicenseCheck:
             verbose_proxy_logger.error("Error reading public key: %s", e)
 
     def _verify(self, license_str: str) -> bool:
-        verbose_proxy_logger.debug(
-            "litellm.proxy.auth.litellm_license.py::_verify - Checking license against %s/verify_license - %s",
-            self.base_url,
-            license_str,
-        )
-        url: Final = f"{self.base_url}/verify_license/{license_str}"
-
-        response: httpx.Response | None = None
-        try:  # don't impact user, if call fails
-            num_retries: Final = 3
-            for i in range(num_retries):
-                try:
-                    response = self.http_handler.get(url=url)
-                    if response is None:
-                        raise Exception("No response from license server")
-                    response.raise_for_status()
-                except httpx.HTTPStatusError:
-                    if i == num_retries - 1:
-                        raise
-
-            if response is None:
-                raise Exception("No response from license server")
-
-            response_json: Final = response.json()
-
-            premium: Final = response_json["verify"]
-
-            assert isinstance(premium, bool)
-
-            verbose_proxy_logger.debug(
-                "litellm.proxy.auth.litellm_license.py::_verify - License=%s is premium=%s", license_str, premium
-            )
-            return premium
-        except Exception as e:
-            verbose_proxy_logger.exception(
-                "litellm.proxy.auth.litellm_license.py::_verify - Unable to verify License=%s via api. - %s",
-                license_str,
-                e,
-            )
-            return False
+        """Online license verification is removed: EmbRouter never calls an outside license server.
+        Only licenses signed for the bundled public key (verify_license_without_api_request) count."""
+        verbose_proxy_logger.debug("litellm_license.py::_verify - online license check disabled")
+        return False
 
     def is_premium(self) -> bool:
         """

@@ -13,7 +13,6 @@ from litellm._version import version
 from litellm.exceptions import APIConnectionError, BadRequestError, InternalServerError
 from litellm.litellm_core_utils.bug_report import (
     DISABLE_ENV_VAR,
-    ISSUE_URL_BASE,
     MAX_FRAMES,
     MAX_URL_LENGTH,
     allowlisted,
@@ -26,6 +25,14 @@ from litellm.litellm_core_utils.bug_report import (
     strip_bug_report_notice,
 )
 from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+
+ISSUE_URL_BASE = "https://issues.example.com/new"
+
+
+@pytest.fixture(autouse=True)
+def _bug_report_issue_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bug report links are off unless an issue URL is configured; turn them on for these tests."""
+    monkeypatch.setenv("LITELLM_BUG_REPORT_ISSUE_URL", "https://issues.example.com/new")
 
 
 def test_build_bug_report_keeps_only_litellm_frames():

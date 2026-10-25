@@ -30,7 +30,7 @@ def _upstream_failure(error: Exception, api_base: str | None) -> Exception:
         headers: Final = _UPSTREAM_HEADERS.validate_python(getattr(error, "headers", None))
     except ValidationError:
         return error
-    http_request: Final = httpx.Request("POST", api_base or "https://docs.litellm.ai/docs")
+    http_request: Final = httpx.Request("POST", api_base or "")
     return UpstreamFailure(
         httpx.Response(status, content=body.encode(), headers=headers, request=http_request),
         error,

@@ -231,8 +231,8 @@ def test_rejects_a_malformed_window_as_a_problem_document(mock_prisma_client, as
 
 def test_problem_type_is_an_identifier_not_a_dead_docs_link(mock_prisma_client, as_proxy_admin):
     """RFC 9457 only asks that `type` identify the problem type. An https URI promises
-    human-readable documentation at that address, and https://docs.litellm.ai/errors/
-    is a 404, so emitting one would ship a broken link in every error body."""
+    human-readable documentation at that address, and the
+    old docs URL is a 404, so emitting one would ship a broken link in every error body."""
     _mock_rows(mock_prisma_client, [])
 
     problem_type = _get("filter[startTime][gte]=yesterday&filter[startTime][lte]=2026-07-24T00:00:00Z").json()["type"]

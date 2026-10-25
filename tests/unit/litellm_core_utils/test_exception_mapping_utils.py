@@ -16,6 +16,14 @@ from litellm.llms.bedrock.common_utils import BedrockError
 from litellm.llms.openai.common_utils import OpenAIError
 from litellm.types.utils import LlmProviders
 
+
+@pytest.fixture(autouse=True)
+def _bug_report_issue_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bug report links are off unless an issue URL is configured; turn them on for these tests."""
+    monkeypatch.setenv("LITELLM_BUG_REPORT_ISSUE_URL", "https://issues.example.com/new")
+
+
+
 # Test cases for is_error_str_context_window_exceeded
 # Tuple format: (error_message, expected_result)
 context_window_test_cases = [
@@ -67,7 +75,6 @@ context_window_test_cases = [
     # Test case insensitivity
     ("ERROR: THIS MODEL'S MAXIMUM CONTEXT LENGTH IS 1024.", True),
     # Cerebras context window error format
-    # See: https://github.com/BerriAI/litellm/issues/XXXX
     (
         "Current length is 132784 while limit is 131000",
         True,
@@ -388,7 +395,7 @@ def test_anthropic_context_window_error_mapping(error_message):
 
 
 # Test cases for Vertex AI RateLimitError mapping
-# As per https://github.com/BerriAI/litellm/issues/16189
+# As per
 vertex_rate_limit_test_cases = [
     ("429 Quota exceeded for model", True),
     ("Resource exhausted. Please try again later.", True),
@@ -554,7 +561,7 @@ class TestExtractAndRaiseLitellmException:
         would fail with TypeError when trying to raise APIConnectionError with a
         response parameter, since APIConnectionError doesn't accept that parameter.
 
-        Relevant Issue: https://github.com/BerriAI/litellm/issues/XXXXX
+
         """
         error_str = "litellm.APIConnectionError: GeminiException - some error message"
 
@@ -982,7 +989,7 @@ def test_unmapped_sdk_exception_includes_bug_report_link(quiet_exception_mapping
             original_exception=ValueError("boom"),
         )
 
-    assert "https://github.com/BerriAI/litellm/issues/new?" in str(raised.value)
+    assert "https://issues.example.com/new?" in str(raised.value)
     assert "ValueError" in str(raised.value)
 
 
@@ -996,7 +1003,7 @@ def test_unmapped_sdk_exception_bug_report_link_can_be_disabled(quiet_exception_
             original_exception=ValueError("boom"),
         )
 
-    assert "https://github.com/BerriAI/litellm/issues/new?" not in str(raised.value)
+    assert "https://issues.example.com/new?" not in str(raised.value)
 
 
 def _raise_and_map(model: str | None, original_exception: Exception, custom_llm_provider: str | None) -> None:

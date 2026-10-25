@@ -134,7 +134,7 @@ def get_beta_headers_config(url: str) -> dict:
         Dict containing the beta headers configuration
     """
     # Check if local-only mode is enabled
-    if os.getenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "").lower() == "true":
+    if not url or os.getenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "").lower() == "true":
         # verbose_logger.debug("Using local Anthropic beta headers config (LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS=True)")
         return GetAnthropicBetaHeadersConfig.load_local_beta_headers_config()
 

@@ -128,7 +128,7 @@ class GetBlogPosts:
         Uses the in-process cache if within BLOG_POSTS_TTL_SECONDS.
         Fetches from ``url`` otherwise, falling back to local backup on failure.
         """
-        if os.getenv("LITELLM_LOCAL_BLOG_POSTS", "").lower() == "true":
+        if not url or os.getenv("LITELLM_LOCAL_BLOG_POSTS", "").lower() == "true":
             return cls.load_local_blog_posts()
 
         now: Final = time.time()

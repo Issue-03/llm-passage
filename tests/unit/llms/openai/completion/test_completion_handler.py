@@ -2,7 +2,7 @@
 Tests that client headers are forwarded to the provider on the OpenAI
 text completion path.
 
-Regression tests for https://github.com/BerriAI/litellm/issues/27410
+
 """
 
 

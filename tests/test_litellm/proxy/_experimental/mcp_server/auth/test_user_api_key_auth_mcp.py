@@ -4912,7 +4912,7 @@ async def test_tool_permission_servers_included_in_allowed_servers():
     Servers listed only in mcp_tool_permissions (not in mcp_servers)
     should still be accessible.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/21954
+
     """
     from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
         global_mcp_server_manager,
@@ -5524,7 +5524,7 @@ async def test_team_access_group_ids_resolve_to_mcp_servers():
     """A virtual key with empty access_group_ids inherits MCP servers from
     its team's access_group_ids (mirror of the model-side resolution).
 
-    Reproduction of https://github.com/BerriAI/litellm/issues/27657:
+    Regression test.
     the runtime used to ignore team.access_group_ids when computing the
     MCP scope, so virtual keys saw empty server lists even when their
     team had an MCP-granting access group attached.

@@ -13,7 +13,6 @@ async def test_async_realtime_uses_max_size_parameter():
     Test that Azure's async_realtime method uses the REALTIME_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES
     constant for the max_size parameter to handle large base64 audio payloads.
 
-    This verifies the fix for: https://github.com/BerriAI/litellm/issues/15747
     """
     from litellm.constants import REALTIME_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES
     from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
@@ -543,7 +542,7 @@ async def test_async_realtime_uses_bearer_token_when_no_api_key():
     Entra ID-only Azure realtime deployments have no static api-key, so the handshake must
     authenticate with `Authorization: Bearer <azure_ad_token>` and must not send `api-key`.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/34654
+
     """
     from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
@@ -596,7 +595,7 @@ async def test_arealtime_resolves_azure_ad_token_when_no_api_key(monkeypatch):
     `_arealtime` must resolve an Azure AD token (managed identity, service principal, etc.)
     and forward it to the handler when the deployment has no api_key.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/34654
+
     """
     from litellm.realtime_api import main as realtime_main
 
@@ -674,7 +673,7 @@ async def test_realtime_health_check_uses_bearer_token_when_no_api_key(monkeypat
     """
     An Entra ID-only realtime deployment must also pass its realtime health check.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/34654
+
     """
     from litellm.realtime_api import main as realtime_main
 
@@ -712,7 +711,7 @@ async def test_arealtime_forwards_deployment_azure_ad_token(monkeypatch, no_ambi
     The router binds a deployment's `azure_ad_token` to `_arealtime`'s named parameter rather than
     **kwargs, so it must still reach the handler.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/34654
+
     """
     from litellm.realtime_api import main as realtime_main
 

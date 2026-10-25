@@ -3,7 +3,7 @@
 # +-----------------------------------------------+
 # |                                               |
 # |           Give Feedback / Get Help            |
-# | https://github.com/BerriAI/litellm/issues/new |
+# | |
 # |                                               |
 # +-----------------------------------------------+
 #
@@ -472,7 +472,7 @@ async def acompletion(
     Asynchronously executes a litellm.completion() call for any of litellm supported llms (example gpt-4, gpt-3.5-turbo, claude-2, command-nightly)
 
     Parameters:
-        model (str): The name of the language model to use for text completion. see all supported LLMs: https://docs.litellm.ai/docs/providers/
+        model (str): The name of the language model to use for text completion.
         messages (List): A list of message objects representing the conversation context (default is an empty list).
 
         OPTIONAL PARAMS
@@ -568,7 +568,6 @@ async def acompletion(
         # set tools to None
         # eg. in certain cases when users send vector stores as tools
         # we don't want the tools to go to the upstream llm
-        # relevant issue: https://github.com/BerriAI/litellm/issues/11404
         #########################################################
         if tools is not None and len(tools) == 0:
             tools = None
@@ -4190,7 +4189,7 @@ def _complete_bedrock(ctx: _CompletionDispatchContext) -> _CompletionDispatchRes
 
     if "aws_bedrock_client" in optional_params:
         verbose_logger.warning(
-            "'aws_bedrock_client' is a deprecated param. Please move to another auth method - https://docs.litellm.ai/docs/providers/bedrock#boto3---authentication."
+            "'aws_bedrock_client' is a deprecated param. Please move to another auth method"
         )
         # Extract credentials for legacy boto3 client and pass thru to httpx
         aws_bedrock_client: Final = optional_params.pop("aws_bedrock_client")
@@ -5186,7 +5185,7 @@ def completion(
     """
     Perform a completion() using any of litellm supported llms (example gpt-4, gpt-3.5-turbo, claude-2, command-nightly)
     Parameters:
-        model (str): The name of the language model to use for text completion. see all supported LLMs: https://docs.litellm.ai/docs/providers/
+        model (str): The name of the language model to use for text completion.
         messages (List): A list of message objects representing the conversation context (default is an empty list).
 
         OPTIONAL PARAMS
@@ -5382,7 +5381,7 @@ def completion(
     prompt_id: Final = cast(str | None, kwargs.get("prompt_id", None))
     prompt_variables: Final = cast(dict | None, kwargs.get("prompt_variables", None))
     litellm_system_prompt: Final = kwargs.get("litellm_system_prompt", None)
-    ### COPY MESSAGES ### - related issue https://github.com/BerriAI/litellm/discussions/4489
+    ### COPY MESSAGES ###
     messages = get_completion_messages(
         messages=messages,
         ensure_alternating_roles=ensure_alternating_roles or False,
@@ -7629,7 +7628,7 @@ def text_completion(
         messages = [{"role": "user", "content": prompt}]
     else:
         raise Exception(
-            f"Unmapped prompt format. Your prompt is neither a list of strings nor a string. prompt={prompt}. File an issue - https://github.com/BerriAI/litellm/issues"
+            f"Unmapped prompt format. Your prompt is neither a list of strings nor a string. prompt={prompt}."
         )
 
     kwargs.pop("prompt", None)
@@ -8790,7 +8789,7 @@ async def ahealth_check(
             _response_headers: Final[dict] = getattr(_response, "_hidden_params", {}).get("headers", {}) or {}
             return _create_health_check_response(_response_headers)
         else:
-            raise Exception(f"Mode {mode} not supported. See modes here: https://docs.litellm.ai/docs/proxy/health")
+            raise Exception(f"Mode {mode} not supported.")
     except Exception as e:
         stack_trace = _redact_string(traceback.format_exc())
         if isinstance(stack_trace, str):
@@ -8798,7 +8797,7 @@ async def ahealth_check(
 
         if mode is None:
             return {
-                "error": f"error:{e}. Missing `mode`. Set the `mode` for the model - https://docs.litellm.ai/docs/proxy/health#embedding-models  \nstacktrace: {stack_trace}",
+                "error": f"error:{e}. Missing `mode`. Set the `mode` for the model  \nstacktrace: {stack_trace}",
                 "exception": e,
             }
 
@@ -9160,7 +9159,6 @@ def stream_chunk_builder(
             _choice.message.audio = processor.get_combined_audio_content(audio_chunks)
 
         # Handle image chunks from models like gemini-2.5-flash-image
-        # See: https://github.com/BerriAI/litellm/issues/19478
         image_chunks: Final = [
             chunk
             for chunk in chunks
@@ -9177,7 +9175,6 @@ def stream_chunk_builder(
             response["choices"][0]["message"]["images"] = all_images
 
         # Combine provider_specific_fields from streaming chunks (e.g., web_search_results, citations)
-        # See: https://github.com/BerriAI/litellm/issues/17737
         provider_specific_chunks: Final = [
             chunk
             for chunk in chunks

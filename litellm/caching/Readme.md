@@ -30,8 +30,8 @@ litellm/caching/
 ```
 
 ## Documentation
-- [Caching on LiteLLM Gateway](https://docs.litellm.ai/docs/proxy/caching)
-- [Caching on LiteLLM Python](https://docs.litellm.ai/docs/caching/all_caches)
+- Caching on LiteLLM Gateway
+- Caching on LiteLLM Python
 
 
 

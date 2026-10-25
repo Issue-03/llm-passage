@@ -89,7 +89,7 @@ async def test_create_access_group_with_model_ids_tags_only_specific_deployments
     Test that using model_ids only tags the specific deployments, not all
     deployments sharing the same model_name.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/21544
+
     """
     from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
     from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (

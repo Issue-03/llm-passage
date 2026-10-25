@@ -24,7 +24,7 @@ class LangfuseInMemoryCache(InMemoryCache):
     The counter is a soft budget: loggers built concurrently for one credential set before the
     first lands in the cache each take a slot, and only the cached one gives it back on expiry.
     The logger's ``stop()`` below hands its shared export channel back
-    (https://github.com/BerriAI/litellm/issues/11169).
+.
     """
 
     def _remove_key(self, key: str) -> None:
@@ -53,7 +53,7 @@ class DynamicLoggingCache:
     """
     Prevent memory leaks caused by initializing new logging clients on each request.
 
-    Relevant Issue: https://github.com/BerriAI/litellm/issues/5695
+
     """
 
     def __init__(self) -> None:

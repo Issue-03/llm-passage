@@ -439,7 +439,7 @@ class TestDashboardRegistration:
     def test_endpoint_matrix_documents_every_served_surface(self, matrix_path):
         entry = json.loads(matrix_path.read_text())["providers"]["edenai"]
 
-        assert entry["url"] == "https://docs.litellm.ai/docs/providers/edenai"
+        assert entry["url"] == ""
         served = {name for name, flag in entry["endpoints"].items() if flag}
         assert served == {
             "chat_completions",

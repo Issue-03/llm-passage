@@ -1122,7 +1122,7 @@ def test_cost_field_in_usage_chunks():
 
 
 def test_stream_chunk_builder_tolerates_trailing_chunk_without_choices():
-    """Regression for https://github.com/BerriAI/litellm/issues/32051
+    """Regression test.
 
     The Responses-API bridge yields ModelResponseStream chunks with choices
     followed by a trailing event object that has no ``choices`` key. Building

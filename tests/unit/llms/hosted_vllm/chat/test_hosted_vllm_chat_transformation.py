@@ -63,7 +63,7 @@ def test_hosted_vllm_supports_thinking():
     Anthropic-style thinking is converted to OpenAI-style reasoning_effort
     since vLLM is OpenAI-compatible.
 
-    Related issue: https://github.com/BerriAI/litellm/issues/19761
+
     """
     config = HostedVLLMChatConfig()
     supported_params = config.get_supported_openai_params(model="hosted_vllm/GLM-4.6-FP8")

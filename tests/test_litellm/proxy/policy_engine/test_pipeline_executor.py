@@ -614,7 +614,7 @@ async def test_data_forwarding_pii_masking(monkeypatch):
 @pytest.mark.asyncio
 async def test_scan_raw_request_step_sees_pre_pipeline_content(monkeypatch):
     """
-    veria-ai finding on BerriAI/litellm#34940: a scan_raw_request=True guardrail
+    veria-ai finding: a scan_raw_request=True guardrail
     that is itself a pipeline step never saw raw_request_snapshot at all --
     execute_steps had no way to receive it, so it evaluated whatever an earlier
     pass_data step in the same pipeline had already rewritten, defeating the

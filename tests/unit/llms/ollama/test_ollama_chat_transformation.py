@@ -337,7 +337,7 @@ class TestOllamaChatConfigResponseFormat:
 class TestOllamaToolCalling:
     """Tests for Ollama tool calling fixes.
 
-    Issue: https://github.com/BerriAI/litellm/issues/18922
+
     """
 
     def test_tools_passed_directly_without_capability_check(self):
@@ -619,7 +619,7 @@ class TestOllamaFinishReasonLength:
         """Streaming: tool_calls arriving mid-stream (not on the done chunk) must
         still produce finish_reason='tool_calls' on the final chunk.
 
-        Regression test for https://github.com/BerriAI/litellm/issues/34692:
+
         Ollama emits tool_calls in an earlier chunk and the done chunk carries
         none, which left finish_reason at 'stop' and made the Anthropic
         /v1/messages bridge emit stop_reason 'end_turn' instead of 'tool_use'.
@@ -859,7 +859,6 @@ class TestOllamaToolCallTransformation:
         copied into the outgoing OllamaChatCompletionMessage, so Ollama
         received {role: assistant, content: ''} with no tool_calls and
         the model re-issued the same call on every turn.
-        Regression: https://github.com/BerriAI/litellm/issues/26094
         """
         config = OllamaChatConfig()
         messages = cast(
@@ -902,7 +901,6 @@ class TestOllamaToolCallTransformation:
         """
         tool_call_id on role:tool messages must be forwarded so Ollama can
         resolve the tool name from the conversation history.
-        Regression: https://github.com/BerriAI/litellm/issues/26094
         """
         config = OllamaChatConfig()
         messages = cast(

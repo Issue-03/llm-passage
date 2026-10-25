@@ -7769,7 +7769,7 @@ async def test_global_proxy_spend_none_when_proxy_budget_row_missing():
 @pytest.mark.asyncio
 async def test_temp_budget_increase_applied_for_cached_key():
     """
-    Regression for https://github.com/BerriAI/litellm/issues/25760
+    Regression test.
 
     temp_budget_increase used to be applied only on the DB-fetch path, so a key
     served from cache kept its original max_budget and was wrongly blocked once

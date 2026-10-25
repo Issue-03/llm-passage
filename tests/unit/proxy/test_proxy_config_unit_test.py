@@ -244,7 +244,7 @@ async def test_json_logs_calls_turn_on_json():
 
     This is a regression test for the bug where json_logs in config file
     would only set the attribute but not actually enable JSON logging.
-    See: https://github.com/BerriAI/litellm/issues/XXXX
+
     """
     import tempfile
 

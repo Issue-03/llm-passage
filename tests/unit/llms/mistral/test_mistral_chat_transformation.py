@@ -804,7 +804,7 @@ class TestMistralStripsOutputOnlyFields:
 
     LiteLLM attaches ``reasoning_content`` / ``thinking_blocks`` to assistant
     responses, so replaying an assistant turn verbatim must not forward them.
-    Regression for https://github.com/BerriAI/litellm/issues/30835.
+    Regression test.
     """
 
     def test_assistant_reasoning_content_is_dropped(self):

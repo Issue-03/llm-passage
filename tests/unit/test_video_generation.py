@@ -252,7 +252,6 @@ class TestVideoGeneration:
         When a deployment has custom pricing via model_info, it should be used
         instead of looking up the global litellm.model_cost map.
 
-        Related: https://github.com/BerriAI/litellm/issues/21907
         """
         model_info = {
             "output_cost_per_video_per_second": 0.05,
@@ -268,7 +267,6 @@ class TestVideoGeneration:
         """Test that output_cost_per_second is used as fallback when
         output_cost_per_video_per_second is not set in custom model_info.
 
-        Related: https://github.com/BerriAI/litellm/issues/21907
         """
         model_info = {
             "output_cost_per_second": 0.10,
@@ -303,7 +301,6 @@ class TestVideoGeneration:
         from litellm_logging_obj.litellm_params.metadata.model_info and passes it to
         the video cost calculator.
 
-        Related: https://github.com/BerriAI/litellm/issues/21907
         """
         from litellm.cost_calculator import completion_cost
 
@@ -394,7 +391,7 @@ class TestVideoGeneration:
     def test_completion_cost_video_custom_pricing_under_litellm_metadata(self):
         """Video routes store deployment model_info under litellm_metadata, not metadata.
 
-        Regression for https://github.com/BerriAI/litellm/issues/36483: custom video
+        Regression for custom video
         pricing was silently ignored because completion_cost only read metadata.
         """
         from litellm.cost_calculator import completion_cost

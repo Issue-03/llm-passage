@@ -318,7 +318,7 @@ async def gemini_proxy_route(
     fastapi_response: Response,
 ):
     """
-    [Docs](https://docs.litellm.ai/docs/pass_through/google_ai_studio)
+
     """
     ## CHECK FOR LITELLM API KEY IN THE QUERY PARAMS - ?..key=LITELLM_API_KEY
     google_ai_studio_api_key: Final = request.query_params.get("key") or request.headers.get("x-goog-api-key")
@@ -386,7 +386,7 @@ async def cohere_proxy_route(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """
-    [Docs](https://docs.litellm.ai/docs/pass_through/cohere)
+
     """
     base_target_url: Final = os.getenv("COHERE_API_BASE") or "https://api.cohere.com"
     encoded_endpoint = httpx.URL(endpoint).path
@@ -487,7 +487,7 @@ async def vllm_proxy_route(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """
-    [Docs](https://docs.litellm.ai/docs/pass_through/vllm)
+
     """
     from litellm.proxy.proxy_server import llm_router
 
@@ -556,7 +556,7 @@ async def mistral_proxy_route(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """
-    [Docs](https://docs.litellm.ai/docs/pass_through/mistral)
+
     """
     base_target_url: Final = os.getenv("MISTRAL_API_BASE") or "https://api.mistral.ai"
     encoded_endpoint = httpx.URL(endpoint).path
@@ -608,7 +608,7 @@ async def typesafe_proxy_route(
     fastapi_response: Response,
     user_api_key_dict: Annotated[UserAPIKeyAuth, Depends(user_api_key_auth)],
 ):
-    """[Docs](https://docs.litellm.ai/docs/pass_through/typesafe)"""
+    """"""
     base_target_url: Final = get_secret_str("TYPESAFE_API_BASE") or "https://api.typesafe.ai"
     encoded_endpoint: Final = httpx.URL(endpoint).path
     normalized_endpoint: Final = encoded_endpoint if encoded_endpoint.startswith("/") else f"/{encoded_endpoint}"
@@ -824,7 +824,7 @@ async def anthropic_proxy_route(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """
-    [Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion)
+
     """
     base_target_url = os.getenv("ANTHROPIC_API_BASE") or os.getenv("ANTHROPIC_BASE_URL") or "https://api.anthropic.com"
     encoded_endpoint = httpx.URL(endpoint).path
@@ -1262,7 +1262,7 @@ async def bedrock_proxy_route(
     """
     This is the v1 passthrough for Bedrock.
     V2 is handled by the `/bedrock/v2` endpoint.
-    [Docs](https://docs.litellm.ai/docs/pass_through/bedrock)
+
     """
     create_request_copy(request)
 
@@ -1374,7 +1374,7 @@ async def comprehend_medical_proxy_route(
     The request body is forwarded as-is to the AWS JSON 1.1 API and signed with SigV4
     using the proxy's AWS credentials.
 
-    [Docs](https://docs.litellm.ai/docs/pass_through/comprehend_medical)
+
     """
     from .llm_provider_handlers.comprehend_medical_passthrough_logging_handler import (
         COMPREHEND_MEDICAL_SUPPORTED_OPERATIONS,
@@ -1449,7 +1449,7 @@ async def comprehend_medical_sdk_proxy_route(
     `endpoint_url` at `/comprehendmedical` and the operation is read from the
     `X-Amz-Target` header, per the AWS JSON 1.1 protocol.
 
-    [Docs](https://docs.litellm.ai/docs/pass_through/comprehend_medical)
+
     """
     target_header: Final = request.headers.get("x-amz-target", "")
     target_prefix, _, operation = target_header.partition(".")
@@ -1539,7 +1539,7 @@ async def azure_speech_proxy_route(
     `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key
     and is never forwarded.
 
-    [Docs](https://docs.litellm.ai/docs/pass_through/azure_speech)
+
     """
     normalized_endpoint_path: Final = canonical_azure_speech_endpoint_path(endpoint)
     base_url: Final = resolve_azure_speech_base_url(
@@ -1628,7 +1628,7 @@ async def transcribe_proxy_route(
     (`transcribestreaming`) uses a separate HTTP/2 event-stream protocol and is not served
     by this route.
 
-    [Docs](https://docs.litellm.ai/docs/pass_through/transcribe)
+
     """
     from .llm_provider_handlers.transcribe_passthrough_logging_handler import (
         TRANSCRIBE_CUSTOM_LLM_PROVIDER,
@@ -1744,7 +1744,7 @@ async def transcribe_sdk_proxy_route(
     at `/transcribe` and the operation is read from the `X-Amz-Target` header, per the
     AWS JSON 1.1 protocol.
 
-    [Docs](https://docs.litellm.ai/docs/pass_through/transcribe)
+
     """
     from .llm_provider_handlers.transcribe_passthrough_logging_handler import (
         TRANSCRIBE_TARGET_PREFIX,
@@ -2869,7 +2869,7 @@ async def vertex_proxy_route(
     """
     Call LiteLLM proxy via Vertex AI SDK.
 
-    [Docs](https://docs.litellm.ai/docs/pass_through/vertex_ai)
+
     """
     ai_platform_handler: Final = get_vertex_pass_through_handler(call_type="aiplatform")
 
@@ -2914,7 +2914,7 @@ async def openai_proxy_route(
         - /openai_passthrough/v1/responses/{response_id}
         - /openai_passthrough/v1/responses/{response_id}/input_items
 
-    [Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)
+
     """
     base_target_url: Final = os.getenv("OPENAI_API_BASE") or "https://api.openai.com/"
     # Add or update query parameters
@@ -3418,7 +3418,7 @@ async def tinyfish_proxy_route(
     1. passthrough_endpoint_router (config.yaml deployments with use_in_pass_through)
     2. TINYFISH_API_KEY environment variable
 
-    [Docs](https://docs.litellm.ai/docs/pass_through/tinyfish)
+
     """
     from .llm_provider_handlers.tinyfish_passthrough_logging_handler import (
         resolve_tinyfish_agent_api_base,
@@ -3776,7 +3776,7 @@ async def gigachat_proxy_route(
     user_api_key_dict: Annotated[UserAPIKeyAuth, Depends(user_api_key_auth)],
 ) -> Response:
     """
-    [Docs](https://docs.litellm.ai/docs/pass_through/gigachat)
+
     """
     from litellm.proxy.proxy_server import (
         general_settings,

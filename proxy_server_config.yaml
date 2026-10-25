@@ -8,11 +8,11 @@ model_list:
   - model_name: gpt-5-mini-end-user-test
     litellm_params:
       model: openai/gpt-5-mini
-      api_key: os.environ/OPENAI_API_KEY # The `os.environ/` prefix tells litellm to read this from the env. See https://docs.litellm.ai/docs/simple_proxy#load-api-keys-from-vault
+      api_key: os.environ/OPENAI_API_KEY # The `os.environ/` prefix tells litellm to read this from the env.
   - model_name: gpt-3.5-turbo
     litellm_params:
       model: openai/gpt-4.1-mini
-      api_key: os.environ/OPENAI_API_KEY # The `os.environ/` prefix tells litellm to read this from the env. See https://docs.litellm.ai/docs/simple_proxy#load-api-keys-from-vault
+      api_key: os.environ/OPENAI_API_KEY # The `os.environ/` prefix tells litellm to read this from the env.
   - model_name: gpt-3.5-turbo-large
     litellm_params:
       model: "gpt-4.1"
@@ -23,14 +23,14 @@ model_list:
   - model_name: gpt-4
     litellm_params:
       model: openai/gpt-4.1
-      api_key: os.environ/OPENAI_API_KEY # The `os.environ/` prefix tells litellm to read this from the env. See https://docs.litellm.ai/docs/simple_proxy#load-api-keys-from-vault
+      api_key: os.environ/OPENAI_API_KEY # The `os.environ/` prefix tells litellm to read this from the env.
       api_base: os.environ/RECORDER_OPENAI_BASE_URL # In CI, routes through the record/replay proxy; unset elsewhere -> direct to OpenAI
       rpm: 480
       timeout: 300
       stream_timeout: 60
   - model_name: sagemaker-completion-model
     litellm_params:
-      model: sagemaker/berri-benchmarking-Llama-2-70b-chat-hf-4
+      model: sagemaker/example-llama-2-70b-chat
       cost_per_second: 0.000420
   - model_name: text-embedding-ada-002
     litellm_params:
@@ -219,7 +219,7 @@ router_settings:
   model_group_alias: {"my-special-fake-model-alias-name": "fake-openai-endpoint-3"} 
 
 general_settings: 
-  master_key: os.environ/LITELLM_MASTER_KEY # [OPTIONAL] Use to enforce auth on proxy. See - https://docs.litellm.ai/docs/proxy/virtual_keys
+  master_key: os.environ/LITELLM_MASTER_KEY # [OPTIONAL] Use to enforce auth on proxy.
   store_model_in_db: True
   proxy_budget_rescheduler_min_time: 60
   proxy_budget_rescheduler_max_time: 64

@@ -469,7 +469,7 @@ describe("LogDetailContent", () => {
     expect(screen.getByText("83")).toBeInTheDocument();
   });
 
-  it("should link the Response Cache tooltip to the response caching docs", async () => {
+  it("shows the Response Cache tooltip without a docs link", async () => {
     const user = userEvent.setup();
     render(<LogDetailContent logEntry={createLogEntry({ cache_hit: "True" })} />);
 
@@ -478,13 +478,11 @@ describe("LogDetailContent", () => {
     expect(infoIcons).toHaveLength(1);
     await user.hover(infoIcons[0]);
 
-    expect(await screen.findByRole("link", { name: "Docs" })).toHaveAttribute(
-      "href",
-      "https://docs.litellm.ai/docs/proxy/caching",
-    );
+    expect((await screen.findAllByText(/served from EmbRouter's response cache/)).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("link", { name: "Docs" })).not.toBeInTheDocument();
   });
 
-  it("should link the prompt cache tooltips to the prompt caching docs", async () => {
+  it("shows the prompt cache tooltips without a docs link", async () => {
     const user = userEvent.setup();
     render(
       <LogDetailContent
@@ -503,10 +501,7 @@ describe("LogDetailContent", () => {
     expect(infoIcons).toHaveLength(1);
     await user.hover(infoIcons[0]);
 
-    expect(await screen.findByRole("link", { name: "Docs" })).toHaveAttribute(
-      "href",
-      "https://docs.litellm.ai/docs/completion/prompt_caching",
-    );
+    expect(screen.queryByRole("link", { name: "Docs" })).not.toBeInTheDocument();
   });
 
   it("should hide the Response Cache row when cache_hit is not a true/false value", () => {

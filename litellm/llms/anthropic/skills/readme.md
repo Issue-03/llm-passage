@@ -275,5 +275,5 @@ To add support for Skills API to a new provider:
 ## Support
 
 For issues or questions:
-- GitHub Issues: https://github.com/BerriAI/litellm/issues
+- GitHub
 - Discord: https://discord.gg/wuPM9dRgDw

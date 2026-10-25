@@ -2,7 +2,7 @@
 Tests that ``get_cost_for_anthropic_web_search`` tolerates ``server_tool_use``
 being either a ``dict`` or a ``ServerToolUse`` pydantic instance.
 
-See https://github.com/BerriAI/litellm/issues/26153.
+
 """
 
 

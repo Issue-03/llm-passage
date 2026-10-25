@@ -720,7 +720,7 @@ def test_get_tags_from_request_body_with_null_metadata():
     """
     Test that function handles null metadata gracefully without crashing.
 
-    This is a regression test for https://github.com/BerriAI/litellm/issues/17263
+
     When metadata is explicitly set to null/None, the function should return
     an empty list instead of raising AttributeError.
     """
@@ -807,7 +807,7 @@ async def test_request_body_with_html_script_tags():
     parsed correctly without being blocked or modified.
 
     Regression test for GitHub issue #20441:
-    https://github.com/BerriAI/litellm/issues/20441
+
 
     LLM message content frequently contains HTML/code snippets.
     The HTTP parsing layer must not interfere with such content.

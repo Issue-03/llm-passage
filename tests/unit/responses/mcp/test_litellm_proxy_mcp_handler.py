@@ -868,15 +868,15 @@ def test_extract_tool_call_details_reads_anthropic_tool_use_input():
         "type": "tool_use",
         "id": "toolu_01ABC",
         "name": "read_wiki_structure",
-        "input": {"repoName": "BerriAI/litellm"},
+        "input": {"repoName": "example-org/example-repo"},
     }
 
     name, arguments, call_id = LiteLLM_Proxy_MCP_Handler._extract_tool_call_details(tool_use_block)
 
     assert name == "read_wiki_structure"
     assert call_id == "toolu_01ABC"
-    assert arguments == {"repoName": "BerriAI/litellm"}
-    assert LiteLLM_Proxy_MCP_Handler._parse_tool_arguments(arguments) == {"repoName": "BerriAI/litellm"}
+    assert arguments == {"repoName": "example-org/example-repo"}
+    assert LiteLLM_Proxy_MCP_Handler._parse_tool_arguments(arguments) == {"repoName": "example-org/example-repo"}
 
 
 def test_extract_tool_call_details_still_prefers_openai_arguments():

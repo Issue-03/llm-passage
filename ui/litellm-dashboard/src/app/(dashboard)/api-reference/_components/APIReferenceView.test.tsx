@@ -46,15 +46,13 @@ describe("APIReferenceView", () => {
     expect(renderedCode).not.toContain(proxyUrl);
   });
 
-  it("renders the page title, blurb and docs link", () => {
+  it("renders the page title and blurb without an external docs link", () => {
     render(<APIReferenceView proxySettings={{ PROXY_BASE_URL: "https://proxy.litellm.test" }} />);
 
     expect(screen.getByText("OpenAI Compatible Proxy: API Reference")).toBeInTheDocument();
     expect(screen.getByText(/EmbRouter is OpenAI Compatible/)).toBeInTheDocument();
 
-    const docsLink = screen.getByRole("link", { name: /API Reference Docs/ });
-    expect(docsLink).toHaveAttribute("href", "https://docs.litellm.ai/docs/proxy/user_keys");
-    expect(docsLink).toHaveAttribute("target", "_blank");
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("exposes the three SDK tabs with the first selected by default", () => {

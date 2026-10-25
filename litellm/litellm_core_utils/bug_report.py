@@ -12,7 +12,9 @@ import litellm
 from litellm._version import version as litellm_version
 from litellm.types.utils import LlmProviders
 
-ISSUE_URL_BASE: Final = "https://github.com/BerriAI/litellm/issues/new"
+# Where "file a bug" links point. Empty by default, which turns the bug report notice off;
+# set it (e.g. to your own issue tracker's "new issue" URL) to turn the notice on.
+ISSUE_URL_ENV_VAR: Final = "LITELLM_BUG_REPORT_ISSUE_URL"
 MAX_URL_LENGTH: Final = 6000
 MAX_FRAMES: Final = 12
 DISABLE_ENV_VAR: Final = "LITELLM_DISABLE_BUG_REPORT_LINK"
@@ -41,8 +43,12 @@ class BugReport:
     stream: bool | None
 
 
+def issue_url_base() -> str:
+    return os.getenv(ISSUE_URL_ENV_VAR, "").strip()
+
+
 def bug_report_enabled() -> bool:
-    return os.getenv(DISABLE_ENV_VAR, "").lower() != "true"
+    return bool(issue_url_base()) and os.getenv(DISABLE_ENV_VAR, "").lower() != "true"
 
 
 def should_report_bug(exc: object) -> bool:
@@ -160,7 +166,7 @@ def _issue_url(report: BugReport, frames: tuple[str, ...], config_lines: tuple[s
         ("domain", _domain(report)),
         ("description", _description(report, frames, config_lines)),
     ) + deployment
-    return f"{ISSUE_URL_BASE}?{urlencode(fields)}"
+    return f"{issue_url_base()}?{urlencode(fields)}"
 
 
 def bug_report_issue_url(report: BugReport) -> str:

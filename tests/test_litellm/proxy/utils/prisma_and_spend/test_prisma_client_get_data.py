@@ -271,7 +271,7 @@ async def test_query_first_with_cached_plan_fallback_reconnects_then_retries_ide
     assert retry_call.args == first_call.args == (original_query, "abc")
     reconnect.assert_awaited_once()
     assert reconnect.await_args.kwargs.get("force", False) is False
-    # https://github.com/BerriAI/litellm/issues/36418: without this the healthy
+    # without this the healthy
     # writer probe skips the recreate and the stale plans survive the retry
     assert reconnect.await_args.kwargs.get("force_recreate") is True
     assert [name for name, *_ in manager.mock_calls] == [
@@ -577,8 +577,8 @@ async def test_query_first_with_cached_plan_fallback_reports_pre_query_engine_ge
 ) -> None:
     """The generation is snapshotted before the query, not after it fails: it
     names the engine that prepared the stale statement, which is what lets the
-    reconnect bypass an unrelated cooldown while that engine is still live
-    (https://github.com/BerriAI/litellm/issues/36418). Reading it after the
+    reconnect bypass an unrelated cooldown while that engine is still live.
+    Reading it after the
     failure would miss a recreate that landed in between and force a
     needless second one."""
     prisma_client.db.engine_generation = 3
@@ -606,7 +606,7 @@ async def test_query_first_with_cached_plan_fallback_reports_the_reader_generati
     reader's generation is the one that names the engine holding the stale
     prepared statement. Snapshotting the writer's instead would let an
     unrelated writer reconnect re-arm the cooldown while the reader stayed
-    poisoned (https://github.com/BerriAI/litellm/issues/36418). The two
+    poisoned. The two
     generations are deliberately far apart so only the right one matches."""
     writer = MagicMock(name="writer")
     writer.engine_generation = 99

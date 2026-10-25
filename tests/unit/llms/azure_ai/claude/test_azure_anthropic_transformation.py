@@ -199,7 +199,7 @@ class TestAzureAnthropicConfig:
         """Test that transform_request removes max_retries, stream_options, and extra_body.
 
         These parameters are LiteLLM-internal and not supported by Azure AI Anthropic endpoint.
-        See: https://github.com/BerriAI/litellm/issues/XXXX
+
         """
         config = AzureAnthropicConfig()
 

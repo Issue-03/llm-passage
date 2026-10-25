@@ -1,6 +1,6 @@
 """
 Unit tests for text_completion with token IDs (list of integers) as prompt.
-Tests the fix for https://github.com/BerriAI/litellm/issues/17118
+Regression test.
 """
 
 
@@ -46,7 +46,7 @@ class TestTextCompletionTokenIds:
     def test_completion_prompt_token_ids(self, text_completion_response, monkeypatch):
         """
         Test text_completion with a list of token IDs (integers).
-        This tests the fix for https://github.com/BerriAI/litellm/issues/17118
+        Regression test.
         """
         # Token IDs for "Hello world" in GPT tokenizer
         token_ids = [15496, 995]

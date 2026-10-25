@@ -176,7 +176,7 @@ class TestImageEditRequestUtilsDropParams:
 
 class TestImageEditCustomPricing:
     """
-    Regression tests for https://github.com/BerriAI/litellm/issues/22244
+
 
     image_edit must forward model_info and metadata into litellm_params
     when calling update_environment_variables, so that custom pricing

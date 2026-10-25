@@ -247,7 +247,7 @@ def test_split_concatenated_json_wholly_invalid_returns_empty():
     """
     Wholly unparseable JSON degrades to an empty list instead of raising.
 
-    Regression for https://github.com/BerriAI/litellm/issues/18667: a raise
+    Regression for a raise
     here propagated out of `_convert_to_bedrock_tool_call_invoke` and turned
     every replayed conversation into a 500.
     """
@@ -1785,7 +1785,7 @@ class TestRequestContainsImageContent:
 
 
 class TestEncryptedReasoningReplay:
-    """Regression for https://github.com/BerriAI/litellm/issues/40288."""
+    """Regression for"""
 
     def test_signature_round_trips_the_encrypted_content(self):
         assert encrypted_content_from_signature(encrypted_reasoning_signature("gAAAA_bytes")) == "gAAAA_bytes"

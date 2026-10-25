@@ -2301,7 +2301,7 @@ class TestRouterComplexityDeploymentMethods:
 
 
 class TestComplexityRouterTagBasedRouting:
-    """Regression tests for https://github.com/BerriAI/litellm/issues/33655.
+    """
 
     Two complexity-router deployments can share a public model_name while
     carrying different tags. Both must register, and the request's tags must
@@ -5201,7 +5201,7 @@ class TestRouterPreRoutingAliasOverrides:
 
 class TestRouterPreRoutingSharedAliasName:
     """
-    Regression tests for https://github.com/BerriAI/litellm/issues/36619.
+
 
     A plain deployment and an `auto_router/` marker can share a `model_name`.
     The alias-param forwarding after a pre-routing rewrite must read the
@@ -7720,7 +7720,7 @@ class TestClassificationMode:
 class TestRoutingPlugins:
     """Test the `complexity_router_config.plugins` field: narrows the classified
     tier's candidate pool before a model is picked. Discussion:
-    https://github.com/BerriAI/litellm/discussions/32168"""
+"""
 
     @pytest.mark.asyncio
     async def test_plugin_narrows_tier_candidates(self, mock_router_instance):

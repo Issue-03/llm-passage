@@ -207,7 +207,7 @@ def test_chat_completion_token_logprob_null_top_logprobs():
     Some providers return null for top_logprobs when logprobs=true but
     top_logprobs is unset. The OpenAI spec requires top_logprobs to be an array.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/21932
+
     """
     from litellm.types.utils import ChatCompletionTokenLogprob
 
@@ -247,7 +247,7 @@ def test_choice_logprobs_with_null_top_logprobs():
     Test that ChoiceLogprobs correctly parses content tokens that have
     null top_logprobs (the full nested parsing path).
 
-    Regression test for https://github.com/BerriAI/litellm/issues/21932
+
     """
     from litellm.types.utils import ChoiceLogprobs
 
@@ -769,7 +769,7 @@ def test_delta_function_tool_call_unchanged_by_custom_support():
 
 
 def test_image_response_keeps_background():
-    """https://github.com/BerriAI/litellm/issues/38649"""
+    """"""
     response = ImageResponse(created=1, data=[{"b64_json": "aGk="}], background="transparent", output_format="png")
     assert response.background == "transparent"
     assert response.model_dump()["background"] == "transparent"

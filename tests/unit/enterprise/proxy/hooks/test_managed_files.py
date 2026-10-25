@@ -2770,7 +2770,6 @@ async def test_return_unified_file_id_includes_expires_at():
 # ============================================================================
 # These tests verify that batches and files created by one user
 # cannot be accessed, modified, or cancelled by a different user.
-# Reference: https://github.com/BerriAI/litellm/pull/17401/files
 
 
 @pytest.mark.asyncio

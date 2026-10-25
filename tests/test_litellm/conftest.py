@@ -32,6 +32,7 @@ from litellm.proxy.db import tool_registry_writer as tool_registry_writer_module
 from tests.unit.litellm_core_utils.fake_secret_vault import FakeSecretVault
 
 
+
 def _reset_module_level_aws_auth_caches():
     """
     Clear module-level AWS auth state that can survive between tests.

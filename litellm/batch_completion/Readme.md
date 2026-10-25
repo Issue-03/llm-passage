@@ -1,6 +1,6 @@
 # Implementation of `litellm.batch_completion`, `litellm.batch_completion_models`, `litellm.batch_completion_models_all_responses`
 
-Doc: https://docs.litellm.ai/docs/completion/batching
+
 
 
 LiteLLM Python SDK allows you to:

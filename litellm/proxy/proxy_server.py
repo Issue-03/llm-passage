@@ -976,12 +976,11 @@ ui_link: Final = f"{server_root_path}/ui"
 fallback_login_link: Final = f"{server_root_path}/fallback/login"
 model_hub_link: Final = f"{server_root_path}/ui/model_hub_table"
 ui_message = f"👉 [```LiteLLM Admin Panel on /ui```]({ui_link}). Create, Edit Keys with SSO. Having issues? Try [```Fallback Login```]({fallback_login_link})"
-ui_message += "\n\n💸 [```LiteLLM Model Cost Map```](https://models.litellm.ai/)."
 
-ui_message += f"\n\n🔎 [```LiteLLM Model Hub```]({model_hub_link}). See available models on the proxy. [**Docs**](https://docs.litellm.ai/docs/proxy/ai_hub)"
+ui_message += f"\n\n🔎 [```LiteLLM Model Hub```]({model_hub_link}). See available models on the proxy. **Docs**"
 
 custom_swagger_message: Final = (
-    "[**Customize Swagger Docs**](https://docs.litellm.ai/docs/proxy/enterprise#swagger-docs---custom-routes--branding)"
+    "**Customize Swagger Docs**"
 )
 
 ### CUSTOM BRANDING [ENTERPRISE FEATURE] ###
@@ -6423,7 +6422,6 @@ class ProxyConfig:
                         )
                 elif key == "cache_params":
                     # this is set in the cache branch
-                    # see usage here: https://docs.litellm.ai/docs/proxy/caching
                     pass
                 elif key == "responses":
                     # Initialize global polling via cache settings
@@ -15288,7 +15286,7 @@ async def model_info_v2(
         all_models = copy.deepcopy(llm_router.model_list)
 
         if user_model is not None:
-            # if user does not use a config.yaml, https://github.com/BerriAI/litellm/issues/2061
+            # if user does not use a config.yaml,
             all_models += [user_model]
 
         if model is not None:
@@ -16016,7 +16014,7 @@ async def model_info_v1(
         raise HTTPException(
             status_code=500,
             detail={
-                "error": "LLM Model List not loaded in. Make sure you passed models in your config.yaml or on the LiteLLM Admin UI. - https://docs.litellm.ai/docs/proxy/configs"
+                "error": "LLM Model List not loaded in. Make sure you passed models in your config.yaml or on the LiteLLM Admin UI."
             },
         )
 
@@ -16024,7 +16022,7 @@ async def model_info_v1(
         raise HTTPException(
             status_code=500,
             detail={
-                "error": "LLM Router is not loaded in. Make sure you passed models in your config.yaml or on the LiteLLM Admin UI. - https://docs.litellm.ai/docs/proxy/configs"
+                "error": "LLM Router is not loaded in. Make sure you passed models in your config.yaml or on the LiteLLM Admin UI."
             },
         )
 
@@ -16259,7 +16257,7 @@ async def model_group_info(
     -H 'Authorization: Bearersk-1234'
     ```
 
-    Learn how to use and set wildcard models [here](https://docs.litellm.ai/docs/wildcard_routing)
+    Learn how to use and set wildcard models
 
     Example Response:
     ```json
@@ -17087,7 +17085,7 @@ async def onboarding(invite_link: str, request: Request):
 
     if master_key is None:
         raise ProxyException(
-            message="Master Key not set for Proxy. Please set Master Key to use Admin UI. Set `LITELLM_MASTER_KEY` in .env or set general_settings:master_key in config.yaml.  https://docs.litellm.ai/docs/proxy/virtual_keys. If set, use `--detailed_debug` to debug issue.",
+            message="Master Key not set for Proxy. Please set Master Key to use Admin UI. Set `LITELLM_MASTER_KEY` in .env or set general_settings:master_key in config.yaml. If set, use `--detailed_debug` to debug issue.",
             type=ProxyErrorTypes.auth_error,
             param="master_key",
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -17175,7 +17173,7 @@ def _get_onboarding_claims_from_request(request: Request) -> dict:
 
     if master_key is None:
         raise ProxyException(
-            message="Master Key not set for Proxy. Please set Master Key to use Admin UI. Set `LITELLM_MASTER_KEY` in .env or set general_settings:master_key in config.yaml.  https://docs.litellm.ai/docs/proxy/virtual_keys. If set, use `--detailed_debug` to debug issue.",
+            message="Master Key not set for Proxy. Please set Master Key to use Admin UI. Set `LITELLM_MASTER_KEY` in .env or set general_settings:master_key in config.yaml. If set, use `--detailed_debug` to debug issue.",
             type=ProxyErrorTypes.auth_error,
             param="master_key",
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,

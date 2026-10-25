@@ -1,6 +1,6 @@
 """Coordination between planned Prisma engine restarts and reconnect paths.
 
-Covers the fix for https://github.com/BerriAI/litellm/issues/29176 — an RDS
+Covers the fix for — an RDS
 IAM token refresh recreates the Prisma client (killing the query-engine
 subprocess), and the engine-death watcher / in-flight transport-error
 retries must not treat that planned restart as a crash and recreate the

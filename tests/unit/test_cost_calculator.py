@@ -1092,7 +1092,7 @@ def test_azure_audio_output_cost_calculation(_local_model_cost_map):
     """
     Test that Azure audio models correctly calculate costs for audio output tokens.
 
-    Reproduces issue: https://github.com/BerriAI/litellm/issues/19764
+    Reproduces
     Audio tokens should be charged at output_cost_per_audio_token rate,
     not at the text token rate (output_cost_per_token).
     """
@@ -1489,7 +1489,7 @@ def test_azure_ai_cache_cost_calculation(_local_model_cost_map):
 
 def test_vertex_regional_deployment_costs_uplift_over_global(monkeypatch):
     """
-    Regression for https://github.com/BerriAI/litellm/issues/34393: two Vertex
+    Regression for two Vertex
     deployments differing only in vertex_location must not price identically.
     Google bills non-global endpoints at 1.1x for regional-pricing models, so the
     regional request costs 1.1x the global one for the exact same usage, through
@@ -4053,7 +4053,7 @@ def test_completion_cost_keeps_custom_priced_slash_router_id(_local_model_cost_m
 def test_realtime_priceless_deployment_entry_falls_through_to_priced_model(
     _local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch, priceless_entry: dict
 ) -> None:
-    """Regression for https://github.com/BerriAI/litellm/issues/31087 (router-registered priceless entries)."""
+    """Regression for (router-registered priceless entries)."""
     monkeypatch.setitem(
         litellm.model_cost,
         "vertex_ai/some-unmapped-live-model",

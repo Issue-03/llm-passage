@@ -3,7 +3,7 @@
 By default ``litellm.model_cost`` is fetched from the main branch on GitHub,
 which lags behind PR-branch flag additions. This fixture loads the local
 file so per-model flag tests pass in CI as well as locally.
-See https://github.com/BerriAI/litellm/issues/27122.
+
 """
 
 import pytest

@@ -78,8 +78,8 @@ async def test_send_key_created_email(
     with mock.patch.dict(
         os.environ,
         {
-            "EMAIL_LOGO_URL": "https://litellm-listing.s3.amazonaws.com/litellm_logo.png",
-            "EMAIL_SUPPORT_CONTACT": "support@berri.ai",
+            "EMAIL_LOGO_URL": "https://example.com/logo.png",
+            "EMAIL_SUPPORT_CONTACT": "user@example.com",
             "PROXY_BASE_URL": "http://test.com",
         },
     ):
@@ -114,8 +114,8 @@ async def test_send_user_invitation_email(
     with mock.patch.dict(
         os.environ,
         {
-            "EMAIL_LOGO_URL": "https://litellm-listing.s3.amazonaws.com/litellm_logo.png",
-            "EMAIL_SUPPORT_CONTACT": "support@berri.ai",
+            "EMAIL_LOGO_URL": "https://example.com/logo.png",
+            "EMAIL_SUPPORT_CONTACT": "user@example.com",
             "PROXY_BASE_URL": "http://test.com",
         },
     ):
@@ -151,8 +151,8 @@ async def test_send_user_invitation_email_from_db(
     with mock.patch.dict(
         os.environ,
         {
-            "EMAIL_LOGO_URL": "https://litellm-listing.s3.amazonaws.com/litellm_logo.png",
-            "EMAIL_SUPPORT_CONTACT": "support@berri.ai",
+            "EMAIL_LOGO_URL": "https://example.com/logo.png",
+            "EMAIL_SUPPORT_CONTACT": "user@example.com",
             "PROXY_BASE_URL": "http://test.com",
         },
     ):
@@ -236,8 +236,8 @@ async def test_send_key_rotated_email(
     with mock.patch.dict(
         os.environ,
         {
-            "EMAIL_LOGO_URL": "https://litellm-listing.s3.amazonaws.com/litellm_logo.png",
-            "EMAIL_SUPPORT_CONTACT": "support@berri.ai",
+            "EMAIL_LOGO_URL": "https://example.com/logo.png",
+            "EMAIL_SUPPORT_CONTACT": "user@example.com",
             "PROXY_BASE_URL": "http://test.com",
         },
     ):
@@ -495,8 +495,8 @@ async def test_get_email_params_user_invitation(
     with mock.patch.dict(
         os.environ,
         {
-            "EMAIL_LOGO_URL": "https://litellm-listing.s3.amazonaws.com/litellm_logo.png",
-            "EMAIL_SUPPORT_CONTACT": "support@berri.ai",
+            "EMAIL_LOGO_URL": "https://example.com/logo.png",
+            "EMAIL_SUPPORT_CONTACT": "user@example.com",
             "PROXY_BASE_URL": "http://test.com",
         },
     ):
@@ -515,9 +515,9 @@ async def test_get_email_params_user_invitation(
 
             assert (
                 result.logo_url
-                == "https://litellm-listing.s3.amazonaws.com/litellm_logo.png"
+                == "https://example.com/logo.png"
             )
-            assert result.support_contact == "support@berri.ai"
+            assert result.support_contact == "user@example.com"
             assert (
                 result.base_url == "http://test.com/ui/onboarding?invitation_id=test-id"
             )
@@ -588,9 +588,9 @@ async def test_get_email_params_non_premium_user(mock_env_vars):
         assert email_params.signature == EMAIL_FOOTER
         assert (
             email_params.logo_url
-            == "https://litellm-listing.s3.amazonaws.com/litellm_logo.png"
+            == "https://example.com/logo.png"
         )
-        assert email_params.support_contact == "support@berri.ai"
+        assert email_params.support_contact == "user@example.com"
 
         # Test key created email params
         key_params = await email_logger._get_email_params(
@@ -655,8 +655,8 @@ async def test_send_soft_budget_alert_email(
     with mock.patch.dict(
         os.environ,
         {
-            "EMAIL_LOGO_URL": "https://litellm-listing.s3.amazonaws.com/litellm_logo.png",
-            "EMAIL_SUPPORT_CONTACT": "support@berri.ai",
+            "EMAIL_LOGO_URL": "https://example.com/logo.png",
+            "EMAIL_SUPPORT_CONTACT": "user@example.com",
             "PROXY_BASE_URL": "http://test.com",
         },
     ):

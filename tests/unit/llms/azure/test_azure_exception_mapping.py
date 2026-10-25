@@ -401,7 +401,6 @@ class TestAzureExceptionMapping:
         assert "encrypted_content_affinity" in error.message
         assert "enable_pre_call_checks" in error.message
         assert "optional_pre_call_checks" in error.message
-        assert "docs.litellm.ai" in error.message
 
     def test_openai_invalid_encrypted_content_error(self):
         """Test that OpenAI invalid_encrypted_content errors also get helpful guidance."""

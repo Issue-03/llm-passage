@@ -104,14 +104,7 @@ async function testFallbackModelResponse(selectedModel: string, accessToken: str
     toast.success(
       <span>
         Test model=<strong>{selectedModel}</strong>, received model=
-        <strong>{response.model}</strong>. See{" "}
-        <a
-          href="#"
-          onClick={() => window.open("https://docs.litellm.ai/docs/proxy/reliability", "_blank")}
-          style={{ textDecoration: "underline", color: "blue" }}
-        >
-          curl
-        </a>
+        <strong>{response.model}</strong>.
       </span>,
     );
   } catch (error) {
@@ -139,7 +132,7 @@ const Fallbacks: React.FC<FallbacksProps> = ({ accessToken, userRole, userID }) 
       return;
     }
     getCallbacksCall(accessToken, userID, userRole).then((data) => {
-      let router_settings = data.router_settings;
+      const router_settings = data.router_settings;
       if ("model_group_retry_policy" in router_settings) {
         delete router_settings["model_group_retry_policy"];
       }
@@ -235,7 +228,7 @@ const Fallbacks: React.FC<FallbacksProps> = ({ accessToken, userRole, userID }) 
       toast.fromError("Failed to update router settings: " + error);
       if (accessToken && userRole && userID) {
         getCallbacksCall(accessToken, userID, userRole).then((data) => {
-          let router_settings = data.router_settings;
+          const router_settings = data.router_settings;
           if ("model_group_retry_policy" in router_settings) {
             delete router_settings["model_group_retry_policy"];
           }

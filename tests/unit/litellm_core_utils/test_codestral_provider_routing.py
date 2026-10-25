@@ -6,7 +6,7 @@ are correctly routed to different providers:
 - Chat endpoint -> codestral provider
 - FIM endpoint -> text-completion-codestral provider
 
-Related issue: https://github.com/BerriAI/litellm/issues/18464
+
 """
 
 import pytest

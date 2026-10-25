@@ -3587,7 +3587,7 @@ def test_mapped_pass_through_routes_with_server_root_path():
     Mapped passthrough routes (vertex_ai, bedrock, etc) should match
     even when SERVER_ROOT_PATH is set and the incoming route is prefixed.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/22272
+
     """
     from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,

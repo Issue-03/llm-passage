@@ -77,7 +77,7 @@ def _step_script() -> str:
     workflow = yaml.safe_load(WORKFLOW.read_text())
     steps = workflow["jobs"]["ui-unit-tests"]["steps"]
     script = next(step["run"] for step in steps if step.get("name") == STEP_NAME)
-    resolved = script.replace("${{ github.repository }}", "BerriAI/litellm")
+    resolved = script.replace("${{ github.repository }}", "example-org/example-repo")
     assert "${{" not in resolved, "the step uses an Actions expression this harness does not resolve"
     return resolved
 

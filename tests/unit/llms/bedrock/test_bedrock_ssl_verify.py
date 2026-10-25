@@ -4,7 +4,7 @@ Test SSL verification for AWS Bedrock boto3 clients.
 This test ensures that custom CA certificates are properly passed to all boto3 clients
 (STS and Bedrock services) to support internal certificate authorities.
 
-Issue: https://github.com/BerriAI/litellm/issues/XXXX
+
 User reported that SSL_CERT_FILE environment variable and ssl_verify config were not
 being applied to boto3 clients, causing "certificate verify failed" errors.
 """

@@ -44,7 +44,7 @@ async def test_gcs_cache_async_set_and_get(mock_gcs_dependencies):
 @pytest.mark.asyncio
 async def test_gcs_cache_async_get_encodes_object_name_in_path(mock_gcs_dependencies):
     """
-    Regression test for https://github.com/BerriAI/litellm/issues/30377
+
 
     When gcs_path is set, the object name contains a '/' (e.g. "my_cache/<hash>").
     The GCS JSON API requires the object name in the GET path to be URL-encoded,

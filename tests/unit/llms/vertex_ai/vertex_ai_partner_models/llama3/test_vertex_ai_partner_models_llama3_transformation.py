@@ -47,7 +47,7 @@ MAAS_MODELS = (
 class TestVertexAILlama3Config:
     def test_transform_choices(self):
         """
-        Relevant Issue: https://github.com/BerriAI/litellm/issues/10441#issuecomment-2844975599
+
         """
         config = VertexAILlama3Config()
 

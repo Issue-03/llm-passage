@@ -21,6 +21,13 @@ from litellm.proxy.common_utils.debug_utils import (
 )
 from litellm.proxy.common_utils.debug_utils import router as debug_router
 
+
+@pytest.fixture(autouse=True)
+def _bug_report_issue_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bug report links are off unless an issue URL is configured; turn them on for these tests."""
+    monkeypatch.setenv("LITELLM_BUG_REPORT_ISSUE_URL", "https://issues.example.com/new")
+
+
 PAGE_SIZE = 4096
 STATM_SIZE_PAGES = 100_000
 STATM_RESIDENT_PAGES = 30_000

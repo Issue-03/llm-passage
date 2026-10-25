@@ -101,7 +101,7 @@ def _run(
     env = {k: v for k, v in os.environ.items() if k not in {"GH_TOKEN", "GITHUB_TOKEN"}}
     env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
     env["GITHUB_OUTPUT"] = str(output_file)
-    env["REPO"] = "BerriAI/litellm"
+    env["REPO"] = "example-org/example-repo"
     env["PR_NUMBER"] = pr_number
     env["CHANGED_FILE_COUNT"] = changed_file_count if changed_file_count is not None else str(len(files))
     if category is not None:

@@ -790,7 +790,7 @@ class TestEarlyPhasePassthrough:
         data: Final = {
             "server_id": "266024044f9612bf481c78f6cfef1ff0",
             "name": "deepwiki-read_wiki_structure",
-            "arguments": {"repoName": "BerriAI/litellm"},
+            "arguments": {"repoName": "example-org/example-repo"},
             "metadata": {"headers": {"mcp-session-id": "sess-123"}},
         }
         result: Final = await _run(guardrail, data)

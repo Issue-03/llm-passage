@@ -3,12 +3,12 @@
 Bedrock Converse routes Claude Opus 4.7/4.8 and Claude Sonnet 4 through an
 Anthropic-compatible validator that rejects ``toolSpec.strict`` even though
 Anthropic's native API accepts ``strict`` as a top-level tool field. See
-BerriAI/litellm#31582.
+upstream #31582.
 
 That per-model gate only covers models whose cost-map entry carries the flag, so a
 ``strict: false`` that litellm itself synthesized still broke unflagged models. Since
 ``strict: false`` is the Chat Completions default, it is now dropped for every model
-rather than forwarded as a no-op the provider can reject. See BerriAI/litellm#33193.
+rather than forwarded as a no-op the provider can reject. See upstream #33193.
 """
 
 import pytest

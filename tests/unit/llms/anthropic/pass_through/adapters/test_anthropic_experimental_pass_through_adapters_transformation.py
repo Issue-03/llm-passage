@@ -1005,7 +1005,7 @@ def test_translate_anthropic_to_openai_maps_claude_code_session_id_to_prompt_cac
 
 
 def test_translate_anthropic_to_openai_gives_each_claude_code_session_its_own_prompt_cache_key():
-    """BerriAI/litellm#39145: the first 64 chars of Claude Code's user_id are the per-install device_id."""
+    """upstream #39145: the first 64 chars of Claude Code's user_id are the per-install device_id."""
     keys = tuple(
         _translate_with_metadata("openai/gpt-5.6-luna", {"user_id": _claude_code_user_id(session_id)}, "openai")[
             "prompt_cache_key"
@@ -2285,7 +2285,7 @@ def test_is_bedrock_arn_model(model, expected):
 
 def test_cache_control_preserved_for_bedrock_arn_inference_profile():
     """
-    Regression for https://github.com/BerriAI/litellm/issues/26625
+    Regression test.
 
     Bedrock Application Inference Profile ARNs hide the underlying Claude model
     name, so cache_control must still be preserved through the /v1/messages adapter.
@@ -3874,7 +3874,7 @@ class TestTranslateAnthropicOutputFormatToOpenAI:
 
 class TestAnthropicStreamWrapperToolArgs:
     """
-    Regression test for https://github.com/BerriAI/litellm/issues/24134
+
 
     When Gemini sends tool call args in the same streaming chunk as a content
     block transition, the Anthropic adapter was discarding the processed_chunk

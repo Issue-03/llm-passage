@@ -4831,7 +4831,7 @@
     "paths": {
       "/anthropic/{endpoint}": {
         "delete": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion)",
+          "description": "",
           "operationId": "anthropic_proxy_route_anthropic__endpoint__delete_2",
           "parameters": [
             {
@@ -4875,7 +4875,7 @@
           ]
         },
         "get": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion)",
+          "description": "",
           "operationId": "anthropic_proxy_route_anthropic__endpoint__get_2",
           "parameters": [
             {
@@ -4919,7 +4919,7 @@
           ]
         },
         "patch": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion)",
+          "description": "",
           "operationId": "anthropic_proxy_route_anthropic__endpoint__patch_2",
           "parameters": [
             {
@@ -4963,7 +4963,7 @@
           ]
         },
         "post": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion)",
+          "description": "",
           "operationId": "anthropic_proxy_route_anthropic__endpoint__post_2",
           "parameters": [
             {
@@ -5007,7 +5007,7 @@
           ]
         },
         "put": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion)",
+          "description": "",
           "operationId": "anthropic_proxy_route_anthropic__endpoint__put_2",
           "parameters": [
             {
@@ -5073,7 +5073,7 @@
       },
       "/v1/messages": {
         "post": {
-          "description": "Use `{PROXY_BASE_URL}/anthropic/v1/messages` instead - [Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion).\n\nThis was a BETA endpoint that calls 100+ LLMs in the anthropic format.",
+          "description": "Use `{PROXY_BASE_URL}/anthropic/v1/messages` instead\n\nThis was a BETA endpoint that calls 100+ LLMs in the anthropic format.",
           "operationId": "anthropic_response_v1_messages_post",
           "responses": {
             "200": {
@@ -14512,7 +14512,7 @@
       },
       "/guardrails": {
         "post": {
-          "description": "Create a new guardrail\n\n\ud83d\udc49 [Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/quick_start)\n\nExample Request:\n```bash\ncurl -X POST \"http://localhost:4000/guardrails\" \\\n    -H \"Authorization: Bearer <your_api_key>\" \\\n    -H \"Content-Type: application/json\" \\\n    -d '{\n        \"guardrail\": {\n            \"guardrail_name\": \"my-bedrock-guard\",\n            \"litellm_params\": {\n                \"guardrail\": \"bedrock\",\n                \"mode\": \"pre_call\",\n                \"guardrailIdentifier\": \"ff6ujrregl1q\",\n                \"guardrailVersion\": \"DRAFT\",\n                \"default_on\": true\n            },\n            \"guardrail_info\": {\n                \"description\": \"Bedrock content moderation guardrail\"\n            }\n        }\n    }'\n```\n\nExample Response:\n```json\n{\n    \"guardrail_id\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"guardrail_name\": \"my-bedrock-guard\",\n    \"litellm_params\": {\n        \"guardrail\": \"bedrock\",\n        \"mode\": \"pre_call\",\n        \"guardrailIdentifier\": \"ff6ujrregl1q\",\n        \"guardrailVersion\": \"DRAFT\",\n        \"default_on\": true\n    },\n    \"guardrail_info\": {\n        \"description\": \"Bedrock content moderation guardrail\"\n    },\n    \"created_at\": \"2023-11-09T12:34:56.789Z\",\n    \"updated_at\": \"2023-11-09T12:34:56.789Z\"\n}\n```",
+          "description": "Create a new guardrail\n\n\ud83d\udc49\n\nExample Request:\n```bash\ncurl -X POST \"http://localhost:4000/guardrails\" \\\n    -H \"Authorization: Bearer <your_api_key>\" \\\n    -H \"Content-Type: application/json\" \\\n    -d '{\n        \"guardrail\": {\n            \"guardrail_name\": \"my-bedrock-guard\",\n            \"litellm_params\": {\n                \"guardrail\": \"bedrock\",\n                \"mode\": \"pre_call\",\n                \"guardrailIdentifier\": \"ff6ujrregl1q\",\n                \"guardrailVersion\": \"DRAFT\",\n                \"default_on\": true\n            },\n            \"guardrail_info\": {\n                \"description\": \"Bedrock content moderation guardrail\"\n            }\n        }\n    }'\n```\n\nExample Response:\n```json\n{\n    \"guardrail_id\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"guardrail_name\": \"my-bedrock-guard\",\n    \"litellm_params\": {\n        \"guardrail\": \"bedrock\",\n        \"mode\": \"pre_call\",\n        \"guardrailIdentifier\": \"ff6ujrregl1q\",\n        \"guardrailVersion\": \"DRAFT\",\n        \"default_on\": true\n    },\n    \"guardrail_info\": {\n        \"description\": \"Bedrock content moderation guardrail\"\n    },\n    \"created_at\": \"2023-11-09T12:34:56.789Z\",\n    \"updated_at\": \"2023-11-09T12:34:56.789Z\"\n}\n```",
           "operationId": "create_guardrail_guardrails_post",
           "requestBody": {
             "content": {
@@ -14604,7 +14604,7 @@
       },
       "/guardrails/list": {
         "get": {
-          "description": "List the guardrails that are available on the proxy server\n\n\ud83d\udc49 [Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/quick_start)\n\nExample Request:\n```bash\ncurl -X GET \"http://localhost:4000/guardrails/list\" -H \"Authorization: Bearer <your_api_key>\"\n```\n\nExample Response:\n```json\n{\n    \"guardrails\": [\n        {\n        \"guardrail_name\": \"bedrock-pre-guard\",\n        \"guardrail_info\": {\n            \"params\": [\n            {\n                \"name\": \"toxicity_score\",\n                \"type\": \"float\",\n                \"description\": \"Score between 0-1 indicating content toxicity level\"\n            },\n            {\n                \"name\": \"pii_detection\",\n                \"type\": \"boolean\"\n            }\n            ]\n        }\n        }\n    ]\n}\n```",
+          "description": "List the guardrails that are available on the proxy server\n\n\ud83d\udc49\n\nExample Request:\n```bash\ncurl -X GET \"http://localhost:4000/guardrails/list\" -H \"Authorization: Bearer <your_api_key>\"\n```\n\nExample Response:\n```json\n{\n    \"guardrails\": [\n        {\n        \"guardrail_name\": \"bedrock-pre-guard\",\n        \"guardrail_info\": {\n            \"params\": [\n            {\n                \"name\": \"toxicity_score\",\n                \"type\": \"float\",\n                \"description\": \"Score between 0-1 indicating content toxicity level\"\n            },\n            {\n                \"name\": \"pii_detection\",\n                \"type\": \"boolean\"\n            }\n            ]\n        }\n        }\n    ]\n}\n```",
           "operationId": "list_guardrails_guardrails_list_get",
           "responses": {
             "200": {
@@ -14631,7 +14631,7 @@
       },
       "/guardrails/register": {
         "post": {
-          "description": "Register a guardrail for onboarding (team submission).\n\nAccepts a guardrail config in the\n[Generic Guardrail API](https://docs.litellm.ai/docs/adding_provider/generic_guardrail_api) format.\nThe submission is stored with status `pending_review` until an admin approves it.",
+          "description": "Register a guardrail for onboarding (team submission).\n\nAccepts a guardrail config in the\nGeneric Guardrail API format.\nThe submission is stored with status `pending_review` until an admin approves it.",
           "operationId": "register_guardrail_guardrails_register_post",
           "requestBody": {
             "content": {
@@ -14905,7 +14905,7 @@
       },
       "/guardrails/test_custom_code": {
         "post": {
-          "description": "Test custom code guardrail logic without creating a guardrail.\n\nThis endpoint allows admins to experiment with custom code guardrails by:\n1. Compiling the provided code in a sandbox\n2. Executing the apply_guardrail function with test input\n3. Returning the result (allow/block/modify)\n\n\ud83d\udc49 [Custom Code Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/custom_code_guardrail)\n\nExample Request:\n```bash\ncurl -X POST \"http://localhost:4000/guardrails/test_custom_code\" \\\n    -H \"Authorization: Bearer <your_api_key>\" \\\n    -H \"Content-Type: application/json\" \\\n    -d '{\n        \"custom_code\": \"def apply_guardrail(inputs, request_data, input_type):\\n    for text in inputs[\\\"texts\\\"]:\\n        if regex_match(text, r\\\"\\\\d{3}-\\\\d{2}-\\\\d{4}\\\"):\\n            return block(\\\"SSN detected\\\")\\n    return allow()\",\n        \"test_input\": {\n            \"texts\": [\"My SSN is 123-45-6789\"]\n        },\n        \"input_type\": \"request\"\n    }'\n```\n\nExample Success Response (blocked):\n```json\n{\n    \"success\": true,\n    \"result\": {\n        \"action\": \"block\",\n        \"reason\": \"SSN detected\"\n    },\n    \"error\": null,\n    \"error_type\": null\n}\n```\n\nExample Success Response (allowed):\n```json\n{\n    \"success\": true,\n    \"result\": {\n        \"action\": \"allow\"\n    },\n    \"error\": null,\n    \"error_type\": null\n}\n```\n\nExample Success Response (modified):\n```json\n{\n    \"success\": true,\n    \"result\": {\n        \"action\": \"modify\",\n        \"texts\": [\"My SSN is [REDACTED]\"]\n    },\n    \"error\": null,\n    \"error_type\": null\n}\n```\n\nExample Error Response (compilation error):\n```json\n{\n    \"success\": false,\n    \"result\": null,\n    \"error\": \"Syntax error in custom code: invalid syntax (<guardrail>, line 1)\",\n    \"error_type\": \"compilation\"\n}\n```",
+          "description": "Test custom code guardrail logic without creating a guardrail.\n\nThis endpoint allows admins to experiment with custom code guardrails by:\n1. Compiling the provided code in a sandbox\n2. Executing the apply_guardrail function with test input\n3. Returning the result (allow/block/modify)\n\n\ud83d\udc49 Custom Code Guardrail docs\n\nExample Request:\n```bash\ncurl -X POST \"http://localhost:4000/guardrails/test_custom_code\" \\\n    -H \"Authorization: Bearer <your_api_key>\" \\\n    -H \"Content-Type: application/json\" \\\n    -d '{\n        \"custom_code\": \"def apply_guardrail(inputs, request_data, input_type):\\n    for text in inputs[\\\"texts\\\"]:\\n        if regex_match(text, r\\\"\\\\d{3}-\\\\d{2}-\\\\d{4}\\\"):\\n            return block(\\\"SSN detected\\\")\\n    return allow()\",\n        \"test_input\": {\n            \"texts\": [\"My SSN is 123-45-6789\"]\n        },\n        \"input_type\": \"request\"\n    }'\n```\n\nExample Success Response (blocked):\n```json\n{\n    \"success\": true,\n    \"result\": {\n        \"action\": \"block\",\n        \"reason\": \"SSN detected\"\n    },\n    \"error\": null,\n    \"error_type\": null\n}\n```\n\nExample Success Response (allowed):\n```json\n{\n    \"success\": true,\n    \"result\": {\n        \"action\": \"allow\"\n    },\n    \"error\": null,\n    \"error_type\": null\n}\n```\n\nExample Success Response (modified):\n```json\n{\n    \"success\": true,\n    \"result\": {\n        \"action\": \"modify\",\n        \"texts\": [\"My SSN is [REDACTED]\"]\n    },\n    \"error\": null,\n    \"error_type\": null\n}\n```\n\nExample Error Response (compilation error):\n```json\n{\n    \"success\": false,\n    \"result\": null,\n    \"error\": \"Syntax error in custom code: invalid syntax (<guardrail>, line 1)\",\n    \"error_type\": \"compilation\"\n}\n```",
           "operationId": "test_custom_code_guardrail_guardrails_test_custom_code_post",
           "requestBody": {
             "content": {
@@ -15419,7 +15419,7 @@
       },
       "/guardrails/{guardrail_id}": {
         "delete": {
-          "description": "Delete a guardrail\n\n\ud83d\udc49 [Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/quick_start)\n\nExample Request:\n```bash\ncurl -X DELETE \"http://localhost:4000/guardrails/123e4567-e89b-12d3-a456-426614174000\" \\\n    -H \"Authorization: Bearer <your_api_key>\"\n```\n\nExample Response:\n```json\n{\n    \"message\": \"Guardrail 123e4567-e89b-12d3-a456-426614174000 deleted successfully\"\n}\n```",
+          "description": "Delete a guardrail\n\n\ud83d\udc49\n\nExample Request:\n```bash\ncurl -X DELETE \"http://localhost:4000/guardrails/123e4567-e89b-12d3-a456-426614174000\" \\\n    -H \"Authorization: Bearer <your_api_key>\"\n```\n\nExample Response:\n```json\n{\n    \"message\": \"Guardrail 123e4567-e89b-12d3-a456-426614174000 deleted successfully\"\n}\n```",
           "operationId": "delete_guardrail_guardrails__guardrail_id__delete",
           "parameters": [
             {
@@ -15463,7 +15463,7 @@
           ]
         },
         "get": {
-          "description": "Get detailed information about a specific guardrail by ID\n\n\ud83d\udc49 [Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/quick_start)\n\nExample Request:\n```bash\ncurl -X GET \"http://localhost:4000/guardrails/123e4567-e89b-12d3-a456-426614174000/info\" \\\n    -H \"Authorization: Bearer <your_api_key>\"\n```\n\nExample Response:\n```json\n{\n    \"guardrail_id\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"guardrail_name\": \"my-bedrock-guard\",\n    \"litellm_params\": {\n        \"guardrail\": \"bedrock\",\n        \"mode\": \"pre_call\",\n        \"guardrailIdentifier\": \"ff6ujrregl1q\",\n        \"guardrailVersion\": \"DRAFT\",\n        \"default_on\": true\n    },\n    \"guardrail_info\": {\n        \"description\": \"Bedrock content moderation guardrail\"\n    },\n    \"created_at\": \"2023-11-09T12:34:56.789Z\",\n    \"updated_at\": \"2023-11-09T12:34:56.789Z\"\n}\n```",
+          "description": "Get detailed information about a specific guardrail by ID\n\n\ud83d\udc49\n\nExample Request:\n```bash\ncurl -X GET \"http://localhost:4000/guardrails/123e4567-e89b-12d3-a456-426614174000/info\" \\\n    -H \"Authorization: Bearer <your_api_key>\"\n```\n\nExample Response:\n```json\n{\n    \"guardrail_id\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"guardrail_name\": \"my-bedrock-guard\",\n    \"litellm_params\": {\n        \"guardrail\": \"bedrock\",\n        \"mode\": \"pre_call\",\n        \"guardrailIdentifier\": \"ff6ujrregl1q\",\n        \"guardrailVersion\": \"DRAFT\",\n        \"default_on\": true\n    },\n    \"guardrail_info\": {\n        \"description\": \"Bedrock content moderation guardrail\"\n    },\n    \"created_at\": \"2023-11-09T12:34:56.789Z\",\n    \"updated_at\": \"2023-11-09T12:34:56.789Z\"\n}\n```",
           "operationId": "get_guardrail_info_guardrails__guardrail_id__get",
           "parameters": [
             {
@@ -15507,7 +15507,7 @@
           ]
         },
         "patch": {
-          "description": "Partially update an existing guardrail\n\n\ud83d\udc49 [Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/quick_start)\n\nThis endpoint allows updating specific fields of a guardrail without sending the entire object.\nOnly the following fields can be updated:\n- guardrail_name: The name of the guardrail\n- default_on: Whether the guardrail is enabled by default\n- guardrail_info: Additional information about the guardrail\n\nExample Request:\n```bash\ncurl -X PATCH \"http://localhost:4000/guardrails/123e4567-e89b-12d3-a456-426614174000\" \\\n    -H \"Authorization: Bearer <your_api_key>\" \\\n    -H \"Content-Type: application/json\" \\\n    -d '{\n        \"guardrail_name\": \"updated-name\",\n        \"default_on\": true,\n        \"guardrail_info\": {\n            \"description\": \"Updated description\"\n        }\n    }'\n```\n\nExample Response:\n```json\n{\n    \"guardrail_id\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"guardrail_name\": \"updated-name\",\n    \"litellm_params\": {\n        \"guardrail\": \"bedrock\",\n        \"mode\": \"pre_call\",\n        \"guardrailIdentifier\": \"ff6ujrregl1q\",\n        \"guardrailVersion\": \"DRAFT\",\n        \"default_on\": true\n    },\n    \"guardrail_info\": {\n        \"description\": \"Updated description\"\n    },\n    \"created_at\": \"2023-11-09T12:34:56.789Z\",\n    \"updated_at\": \"2023-11-09T14:22:33.456Z\"\n}\n```",
+          "description": "Partially update an existing guardrail\n\n\ud83d\udc49\n\nThis endpoint allows updating specific fields of a guardrail without sending the entire object.\nOnly the following fields can be updated:\n- guardrail_name: The name of the guardrail\n- default_on: Whether the guardrail is enabled by default\n- guardrail_info: Additional information about the guardrail\n\nExample Request:\n```bash\ncurl -X PATCH \"http://localhost:4000/guardrails/123e4567-e89b-12d3-a456-426614174000\" \\\n    -H \"Authorization: Bearer <your_api_key>\" \\\n    -H \"Content-Type: application/json\" \\\n    -d '{\n        \"guardrail_name\": \"updated-name\",\n        \"default_on\": true,\n        \"guardrail_info\": {\n            \"description\": \"Updated description\"\n        }\n    }'\n```\n\nExample Response:\n```json\n{\n    \"guardrail_id\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"guardrail_name\": \"updated-name\",\n    \"litellm_params\": {\n        \"guardrail\": \"bedrock\",\n        \"mode\": \"pre_call\",\n        \"guardrailIdentifier\": \"ff6ujrregl1q\",\n        \"guardrailVersion\": \"DRAFT\",\n        \"default_on\": true\n    },\n    \"guardrail_info\": {\n        \"description\": \"Updated description\"\n    },\n    \"created_at\": \"2023-11-09T12:34:56.789Z\",\n    \"updated_at\": \"2023-11-09T14:22:33.456Z\"\n}\n```",
           "operationId": "patch_guardrail_guardrails__guardrail_id__patch",
           "parameters": [
             {
@@ -15561,7 +15561,7 @@
           ]
         },
         "put": {
-          "description": "Update an existing guardrail\n\n\ud83d\udc49 [Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/quick_start)\n\nExample Request:\n```bash\ncurl -X PUT \"http://localhost:4000/guardrails/123e4567-e89b-12d3-a456-426614174000\" \\\n    -H \"Authorization: Bearer <your_api_key>\" \\\n    -H \"Content-Type: application/json\" \\\n    -d '{\n        \"guardrail\": {\n            \"guardrail_name\": \"updated-bedrock-guard\",\n            \"litellm_params\": {\n                \"guardrail\": \"bedrock\",\n                \"mode\": \"pre_call\",\n                \"guardrailIdentifier\": \"ff6ujrregl1q\",\n                \"guardrailVersion\": \"1.0\",\n                \"default_on\": true\n            },\n            \"guardrail_info\": {\n                \"description\": \"Updated Bedrock content moderation guardrail\"\n            }\n        }\n    }'\n```\n\nExample Response:\n```json\n{\n    \"guardrail_id\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"guardrail_name\": \"updated-bedrock-guard\",\n    \"litellm_params\": {\n        \"guardrail\": \"bedrock\",\n        \"mode\": \"pre_call\",\n        \"guardrailIdentifier\": \"ff6ujrregl1q\",\n        \"guardrailVersion\": \"1.0\",\n        \"default_on\": true\n    },\n    \"guardrail_info\": {\n        \"description\": \"Updated Bedrock content moderation guardrail\"\n    },\n    \"created_at\": \"2023-11-09T12:34:56.789Z\",\n    \"updated_at\": \"2023-11-09T13:45:12.345Z\"\n}\n```",
+          "description": "Update an existing guardrail\n\n\ud83d\udc49\n\nExample Request:\n```bash\ncurl -X PUT \"http://localhost:4000/guardrails/123e4567-e89b-12d3-a456-426614174000\" \\\n    -H \"Authorization: Bearer <your_api_key>\" \\\n    -H \"Content-Type: application/json\" \\\n    -d '{\n        \"guardrail\": {\n            \"guardrail_name\": \"updated-bedrock-guard\",\n            \"litellm_params\": {\n                \"guardrail\": \"bedrock\",\n                \"mode\": \"pre_call\",\n                \"guardrailIdentifier\": \"ff6ujrregl1q\",\n                \"guardrailVersion\": \"1.0\",\n                \"default_on\": true\n            },\n            \"guardrail_info\": {\n                \"description\": \"Updated Bedrock content moderation guardrail\"\n            }\n        }\n    }'\n```\n\nExample Response:\n```json\n{\n    \"guardrail_id\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"guardrail_name\": \"updated-bedrock-guard\",\n    \"litellm_params\": {\n        \"guardrail\": \"bedrock\",\n        \"mode\": \"pre_call\",\n        \"guardrailIdentifier\": \"ff6ujrregl1q\",\n        \"guardrailVersion\": \"1.0\",\n        \"default_on\": true\n    },\n    \"guardrail_info\": {\n        \"description\": \"Updated Bedrock content moderation guardrail\"\n    },\n    \"created_at\": \"2023-11-09T12:34:56.789Z\",\n    \"updated_at\": \"2023-11-09T13:45:12.345Z\"\n}\n```",
           "operationId": "update_guardrail_guardrails__guardrail_id__put",
           "parameters": [
             {
@@ -15617,7 +15617,7 @@
       },
       "/guardrails/{guardrail_id}/info": {
         "get": {
-          "description": "Get detailed information about a specific guardrail by ID\n\n\ud83d\udc49 [Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/quick_start)\n\nExample Request:\n```bash\ncurl -X GET \"http://localhost:4000/guardrails/123e4567-e89b-12d3-a456-426614174000/info\" \\\n    -H \"Authorization: Bearer <your_api_key>\"\n```\n\nExample Response:\n```json\n{\n    \"guardrail_id\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"guardrail_name\": \"my-bedrock-guard\",\n    \"litellm_params\": {\n        \"guardrail\": \"bedrock\",\n        \"mode\": \"pre_call\",\n        \"guardrailIdentifier\": \"ff6ujrregl1q\",\n        \"guardrailVersion\": \"DRAFT\",\n        \"default_on\": true\n    },\n    \"guardrail_info\": {\n        \"description\": \"Bedrock content moderation guardrail\"\n    },\n    \"created_at\": \"2023-11-09T12:34:56.789Z\",\n    \"updated_at\": \"2023-11-09T12:34:56.789Z\"\n}\n```",
+          "description": "Get detailed information about a specific guardrail by ID\n\n\ud83d\udc49\n\nExample Request:\n```bash\ncurl -X GET \"http://localhost:4000/guardrails/123e4567-e89b-12d3-a456-426614174000/info\" \\\n    -H \"Authorization: Bearer <your_api_key>\"\n```\n\nExample Response:\n```json\n{\n    \"guardrail_id\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"guardrail_name\": \"my-bedrock-guard\",\n    \"litellm_params\": {\n        \"guardrail\": \"bedrock\",\n        \"mode\": \"pre_call\",\n        \"guardrailIdentifier\": \"ff6ujrregl1q\",\n        \"guardrailVersion\": \"DRAFT\",\n        \"default_on\": true\n    },\n    \"guardrail_info\": {\n        \"description\": \"Bedrock content moderation guardrail\"\n    },\n    \"created_at\": \"2023-11-09T12:34:56.789Z\",\n    \"updated_at\": \"2023-11-09T12:34:56.789Z\"\n}\n```",
           "operationId": "get_guardrail_info_guardrails__guardrail_id__info_get",
           "parameters": [
             {
@@ -15738,7 +15738,7 @@
       },
       "/v2/guardrails/list": {
         "get": {
-          "description": "List the guardrails that are available in the database using GuardrailRegistry\n\n\ud83d\udc49 [Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/quick_start)\n\nExample Request:\n```bash\ncurl -X GET \"http://localhost:4000/v2/guardrails/list\" -H \"Authorization: Bearer <your_api_key>\"\n```\n\nExample Response:\n```json\n{\n    \"guardrails\": [\n        {\n            \"guardrail_id\": \"123e4567-e89b-12d3-a456-426614174000\",\n            \"guardrail_name\": \"my-bedrock-guard\",\n            \"litellm_params\": {\n                \"guardrail\": \"bedrock\",\n                \"mode\": \"pre_call\",\n                \"guardrailIdentifier\": \"ff6ujrregl1q\",\n                \"guardrailVersion\": \"DRAFT\",\n                \"default_on\": true\n            },\n            \"guardrail_info\": {\n                \"description\": \"Bedrock content moderation guardrail\"\n            }\n        }\n    ]\n}\n```",
+          "description": "List the guardrails that are available in the database using GuardrailRegistry\n\n\ud83d\udc49\n\nExample Request:\n```bash\ncurl -X GET \"http://localhost:4000/v2/guardrails/list\" -H \"Authorization: Bearer <your_api_key>\"\n```\n\nExample Response:\n```json\n{\n    \"guardrails\": [\n        {\n            \"guardrail_id\": \"123e4567-e89b-12d3-a456-426614174000\",\n            \"guardrail_name\": \"my-bedrock-guard\",\n            \"litellm_params\": {\n                \"guardrail\": \"bedrock\",\n                \"mode\": \"pre_call\",\n                \"guardrailIdentifier\": \"ff6ujrregl1q\",\n                \"guardrailVersion\": \"DRAFT\",\n                \"default_on\": true\n            },\n            \"guardrail_info\": {\n                \"description\": \"Bedrock content moderation guardrail\"\n            }\n        }\n    ]\n}\n```",
           "operationId": "list_guardrails_v2_v2_guardrails_list_get",
           "responses": {
             "200": {
@@ -16360,7 +16360,7 @@
     "paths": {
       "/langfuse/{endpoint}": {
         "delete": {
-          "description": "Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/langfuse)",
+          "description": "Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.\n\n",
           "operationId": "langfuse_proxy_route_langfuse__endpoint__delete",
           "parameters": [
             {
@@ -16399,7 +16399,7 @@
           ]
         },
         "get": {
-          "description": "Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/langfuse)",
+          "description": "Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.\n\n",
           "operationId": "langfuse_proxy_route_langfuse__endpoint__get",
           "parameters": [
             {
@@ -16438,7 +16438,7 @@
           ]
         },
         "patch": {
-          "description": "Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/langfuse)",
+          "description": "Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.\n\n",
           "operationId": "langfuse_proxy_route_langfuse__endpoint__patch",
           "parameters": [
             {
@@ -16477,7 +16477,7 @@
           ]
         },
         "post": {
-          "description": "Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/langfuse)",
+          "description": "Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.\n\n",
           "operationId": "langfuse_proxy_route_langfuse__endpoint__post",
           "parameters": [
             {
@@ -16516,7 +16516,7 @@
           ]
         },
         "put": {
-          "description": "Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/langfuse)",
+          "description": "Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.\n\n",
           "operationId": "langfuse_proxy_route_langfuse__endpoint__put",
           "parameters": [
             {
@@ -23683,7 +23683,7 @@
     "paths": {
       "/anthropic/{endpoint}": {
         "delete": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion)",
+          "description": "",
           "operationId": "anthropic_proxy_route_anthropic__endpoint__delete",
           "parameters": [
             {
@@ -23727,7 +23727,7 @@
           ]
         },
         "get": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion)",
+          "description": "",
           "operationId": "anthropic_proxy_route_anthropic__endpoint__get",
           "parameters": [
             {
@@ -23771,7 +23771,7 @@
           ]
         },
         "patch": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion)",
+          "description": "",
           "operationId": "anthropic_proxy_route_anthropic__endpoint__patch",
           "parameters": [
             {
@@ -23815,7 +23815,7 @@
           ]
         },
         "post": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion)",
+          "description": "",
           "operationId": "anthropic_proxy_route_anthropic__endpoint__post",
           "parameters": [
             {
@@ -23859,7 +23859,7 @@
           ]
         },
         "put": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion)",
+          "description": "",
           "operationId": "anthropic_proxy_route_anthropic__endpoint__put",
           "parameters": [
             {
@@ -24566,7 +24566,7 @@
       },
       "/azure_speech/{endpoint}": {
         "delete": {
-          "description": "Pass-through for the Azure AI Speech REST APIs (speech to text), e.g.\n`POST /azure_speech/speech/recognition/conversation/cognitiveservices/v1?language=en-US`\nwith the raw audio as the body, or `POST /azure_speech/speechtotext/v3.2/transcriptions`.\n\nThe body is forwarded byte for byte and the proxy injects its own\n`Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key\nand is never forwarded.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/azure_speech)",
+          "description": "Pass-through for the Azure AI Speech REST APIs (speech to text), e.g.\n`POST /azure_speech/speech/recognition/conversation/cognitiveservices/v1?language=en-US`\nwith the raw audio as the body, or `POST /azure_speech/speechtotext/v3.2/transcriptions`.\n\nThe body is forwarded byte for byte and the proxy injects its own\n`Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key\nand is never forwarded.\n\n",
           "operationId": "azure_speech_proxy_route_azure_speech__endpoint__delete",
           "parameters": [
             {
@@ -24610,7 +24610,7 @@
           ]
         },
         "get": {
-          "description": "Pass-through for the Azure AI Speech REST APIs (speech to text), e.g.\n`POST /azure_speech/speech/recognition/conversation/cognitiveservices/v1?language=en-US`\nwith the raw audio as the body, or `POST /azure_speech/speechtotext/v3.2/transcriptions`.\n\nThe body is forwarded byte for byte and the proxy injects its own\n`Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key\nand is never forwarded.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/azure_speech)",
+          "description": "Pass-through for the Azure AI Speech REST APIs (speech to text), e.g.\n`POST /azure_speech/speech/recognition/conversation/cognitiveservices/v1?language=en-US`\nwith the raw audio as the body, or `POST /azure_speech/speechtotext/v3.2/transcriptions`.\n\nThe body is forwarded byte for byte and the proxy injects its own\n`Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key\nand is never forwarded.\n\n",
           "operationId": "azure_speech_proxy_route_azure_speech__endpoint__get",
           "parameters": [
             {
@@ -24654,7 +24654,7 @@
           ]
         },
         "patch": {
-          "description": "Pass-through for the Azure AI Speech REST APIs (speech to text), e.g.\n`POST /azure_speech/speech/recognition/conversation/cognitiveservices/v1?language=en-US`\nwith the raw audio as the body, or `POST /azure_speech/speechtotext/v3.2/transcriptions`.\n\nThe body is forwarded byte for byte and the proxy injects its own\n`Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key\nand is never forwarded.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/azure_speech)",
+          "description": "Pass-through for the Azure AI Speech REST APIs (speech to text), e.g.\n`POST /azure_speech/speech/recognition/conversation/cognitiveservices/v1?language=en-US`\nwith the raw audio as the body, or `POST /azure_speech/speechtotext/v3.2/transcriptions`.\n\nThe body is forwarded byte for byte and the proxy injects its own\n`Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key\nand is never forwarded.\n\n",
           "operationId": "azure_speech_proxy_route_azure_speech__endpoint__patch",
           "parameters": [
             {
@@ -24698,7 +24698,7 @@
           ]
         },
         "post": {
-          "description": "Pass-through for the Azure AI Speech REST APIs (speech to text), e.g.\n`POST /azure_speech/speech/recognition/conversation/cognitiveservices/v1?language=en-US`\nwith the raw audio as the body, or `POST /azure_speech/speechtotext/v3.2/transcriptions`.\n\nThe body is forwarded byte for byte and the proxy injects its own\n`Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key\nand is never forwarded.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/azure_speech)",
+          "description": "Pass-through for the Azure AI Speech REST APIs (speech to text), e.g.\n`POST /azure_speech/speech/recognition/conversation/cognitiveservices/v1?language=en-US`\nwith the raw audio as the body, or `POST /azure_speech/speechtotext/v3.2/transcriptions`.\n\nThe body is forwarded byte for byte and the proxy injects its own\n`Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key\nand is never forwarded.\n\n",
           "operationId": "azure_speech_proxy_route_azure_speech__endpoint__post",
           "parameters": [
             {
@@ -24742,7 +24742,7 @@
           ]
         },
         "put": {
-          "description": "Pass-through for the Azure AI Speech REST APIs (speech to text), e.g.\n`POST /azure_speech/speech/recognition/conversation/cognitiveservices/v1?language=en-US`\nwith the raw audio as the body, or `POST /azure_speech/speechtotext/v3.2/transcriptions`.\n\nThe body is forwarded byte for byte and the proxy injects its own\n`Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key\nand is never forwarded.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/azure_speech)",
+          "description": "Pass-through for the Azure AI Speech REST APIs (speech to text), e.g.\n`POST /azure_speech/speech/recognition/conversation/cognitiveservices/v1?language=en-US`\nwith the raw audio as the body, or `POST /azure_speech/speechtotext/v3.2/transcriptions`.\n\nThe body is forwarded byte for byte and the proxy injects its own\n`Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key\nand is never forwarded.\n\n",
           "operationId": "azure_speech_proxy_route_azure_speech__endpoint__put",
           "parameters": [
             {
@@ -24788,7 +24788,7 @@
       },
       "/bedrock/{endpoint}": {
         "delete": {
-          "description": "This is the v1 passthrough for Bedrock.\nV2 is handled by the `/bedrock/v2` endpoint.\n[Docs](https://docs.litellm.ai/docs/pass_through/bedrock)",
+          "description": "This is the v1 passthrough for Bedrock.\nV2 is handled by the `/bedrock/v2` endpoint.\n",
           "operationId": "bedrock_proxy_route_bedrock__endpoint__delete",
           "parameters": [
             {
@@ -24832,7 +24832,7 @@
           ]
         },
         "get": {
-          "description": "This is the v1 passthrough for Bedrock.\nV2 is handled by the `/bedrock/v2` endpoint.\n[Docs](https://docs.litellm.ai/docs/pass_through/bedrock)",
+          "description": "This is the v1 passthrough for Bedrock.\nV2 is handled by the `/bedrock/v2` endpoint.\n",
           "operationId": "bedrock_proxy_route_bedrock__endpoint__get",
           "parameters": [
             {
@@ -24876,7 +24876,7 @@
           ]
         },
         "patch": {
-          "description": "This is the v1 passthrough for Bedrock.\nV2 is handled by the `/bedrock/v2` endpoint.\n[Docs](https://docs.litellm.ai/docs/pass_through/bedrock)",
+          "description": "This is the v1 passthrough for Bedrock.\nV2 is handled by the `/bedrock/v2` endpoint.\n",
           "operationId": "bedrock_proxy_route_bedrock__endpoint__patch",
           "parameters": [
             {
@@ -24920,7 +24920,7 @@
           ]
         },
         "post": {
-          "description": "This is the v1 passthrough for Bedrock.\nV2 is handled by the `/bedrock/v2` endpoint.\n[Docs](https://docs.litellm.ai/docs/pass_through/bedrock)",
+          "description": "This is the v1 passthrough for Bedrock.\nV2 is handled by the `/bedrock/v2` endpoint.\n",
           "operationId": "bedrock_proxy_route_bedrock__endpoint__post",
           "parameters": [
             {
@@ -24964,7 +24964,7 @@
           ]
         },
         "put": {
-          "description": "This is the v1 passthrough for Bedrock.\nV2 is handled by the `/bedrock/v2` endpoint.\n[Docs](https://docs.litellm.ai/docs/pass_through/bedrock)",
+          "description": "This is the v1 passthrough for Bedrock.\nV2 is handled by the `/bedrock/v2` endpoint.\n",
           "operationId": "bedrock_proxy_route_bedrock__endpoint__put",
           "parameters": [
             {
@@ -25010,7 +25010,7 @@
       },
       "/cohere/{endpoint}": {
         "delete": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/cohere)",
+          "description": "",
           "operationId": "cohere_proxy_route_cohere__endpoint__delete",
           "parameters": [
             {
@@ -25054,7 +25054,7 @@
           ]
         },
         "get": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/cohere)",
+          "description": "",
           "operationId": "cohere_proxy_route_cohere__endpoint__get",
           "parameters": [
             {
@@ -25098,7 +25098,7 @@
           ]
         },
         "patch": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/cohere)",
+          "description": "",
           "operationId": "cohere_proxy_route_cohere__endpoint__patch",
           "parameters": [
             {
@@ -25142,7 +25142,7 @@
           ]
         },
         "post": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/cohere)",
+          "description": "",
           "operationId": "cohere_proxy_route_cohere__endpoint__post",
           "parameters": [
             {
@@ -25186,7 +25186,7 @@
           ]
         },
         "put": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/cohere)",
+          "description": "",
           "operationId": "cohere_proxy_route_cohere__endpoint__put",
           "parameters": [
             {
@@ -25232,7 +25232,7 @@
       },
       "/comprehendmedical": {
         "post": {
-          "description": "AWS-SDK-shaped pass-through for Amazon Comprehend Medical: point the SDK's\n`endpoint_url` at `/comprehendmedical` and the operation is read from the\n`X-Amz-Target` header, per the AWS JSON 1.1 protocol.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/comprehend_medical)",
+          "description": "AWS-SDK-shaped pass-through for Amazon Comprehend Medical: point the SDK's\n`endpoint_url` at `/comprehendmedical` and the operation is read from the\n`X-Amz-Target` header, per the AWS JSON 1.1 protocol.\n\n",
           "operationId": "comprehend_medical_sdk_proxy_route_comprehendmedical_post",
           "responses": {
             "200": {
@@ -25257,7 +25257,7 @@
       },
       "/comprehendmedical/{operation}": {
         "post": {
-          "description": "Pass-through for Amazon Comprehend Medical, e.g. `POST /comprehendmedical/DetectEntitiesV2`.\n\nThe request body is forwarded as-is to the AWS JSON 1.1 API and signed with SigV4\nusing the proxy's AWS credentials.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/comprehend_medical)",
+          "description": "Pass-through for Amazon Comprehend Medical, e.g. `POST /comprehendmedical/DetectEntitiesV2`.\n\nThe request body is forwarded as-is to the AWS JSON 1.1 API and signed with SigV4\nusing the proxy's AWS credentials.\n\n",
           "operationId": "comprehend_medical_proxy_route_comprehendmedical__operation__post",
           "parameters": [
             {
@@ -26034,7 +26034,7 @@
       },
       "/gemini/{endpoint}": {
         "delete": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/google_ai_studio)",
+          "description": "",
           "operationId": "gemini_proxy_route_gemini__endpoint__delete",
           "parameters": [
             {
@@ -26073,7 +26073,7 @@
           ]
         },
         "get": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/google_ai_studio)",
+          "description": "",
           "operationId": "gemini_proxy_route_gemini__endpoint__get",
           "parameters": [
             {
@@ -26112,7 +26112,7 @@
           ]
         },
         "patch": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/google_ai_studio)",
+          "description": "",
           "operationId": "gemini_proxy_route_gemini__endpoint__patch",
           "parameters": [
             {
@@ -26151,7 +26151,7 @@
           ]
         },
         "post": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/google_ai_studio)",
+          "description": "",
           "operationId": "gemini_proxy_route_gemini__endpoint__post",
           "parameters": [
             {
@@ -26190,7 +26190,7 @@
           ]
         },
         "put": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/google_ai_studio)",
+          "description": "",
           "operationId": "gemini_proxy_route_gemini__endpoint__put",
           "parameters": [
             {
@@ -26231,7 +26231,7 @@
       },
       "/gigachat/{endpoint}": {
         "delete": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/gigachat)",
+          "description": "",
           "operationId": "gigachat_proxy_route_gigachat__endpoint__delete",
           "parameters": [
             {
@@ -26275,7 +26275,7 @@
           ]
         },
         "get": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/gigachat)",
+          "description": "",
           "operationId": "gigachat_proxy_route_gigachat__endpoint__get",
           "parameters": [
             {
@@ -26319,7 +26319,7 @@
           ]
         },
         "patch": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/gigachat)",
+          "description": "",
           "operationId": "gigachat_proxy_route_gigachat__endpoint__patch",
           "parameters": [
             {
@@ -26363,7 +26363,7 @@
           ]
         },
         "post": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/gigachat)",
+          "description": "",
           "operationId": "gigachat_proxy_route_gigachat__endpoint__post",
           "parameters": [
             {
@@ -26407,7 +26407,7 @@
           ]
         },
         "put": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/gigachat)",
+          "description": "",
           "operationId": "gigachat_proxy_route_gigachat__endpoint__put",
           "parameters": [
             {
@@ -26675,7 +26675,7 @@
       },
       "/mistral/{endpoint}": {
         "delete": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/mistral)",
+          "description": "",
           "operationId": "mistral_proxy_route_mistral__endpoint__delete",
           "parameters": [
             {
@@ -26719,7 +26719,7 @@
           ]
         },
         "get": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/mistral)",
+          "description": "",
           "operationId": "mistral_proxy_route_mistral__endpoint__get",
           "parameters": [
             {
@@ -26763,7 +26763,7 @@
           ]
         },
         "patch": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/mistral)",
+          "description": "",
           "operationId": "mistral_proxy_route_mistral__endpoint__patch",
           "parameters": [
             {
@@ -26807,7 +26807,7 @@
           ]
         },
         "post": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/mistral)",
+          "description": "",
           "operationId": "mistral_proxy_route_mistral__endpoint__post",
           "parameters": [
             {
@@ -26851,7 +26851,7 @@
           ]
         },
         "put": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/mistral)",
+          "description": "",
           "operationId": "mistral_proxy_route_mistral__endpoint__put",
           "parameters": [
             {
@@ -27815,7 +27815,7 @@
       },
       "/openai/{endpoint}": {
         "delete": {
-          "description": "Pass-through endpoint for OpenAI API calls.\n\nAvailable on both routes:\n- /openai/{endpoint:path} - Standard OpenAI passthrough route\n- /openai_passthrough/{endpoint:path} - Dedicated passthrough route (recommended for Responses API)\n\nUse /openai_passthrough/* when you need guaranteed passthrough to OpenAI without conflicts\nwith LiteLLM's native implementations (e.g., for the Responses API at /v1/responses).\n\nExamples:\n    Standard route:\n    - /openai/v1/chat/completions\n    - /openai/v1/assistants\n    - /openai/v1/threads\n\n    Dedicated passthrough (for Responses API):\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n[Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)",
+          "description": "Pass-through endpoint for OpenAI API calls.\n\nAvailable on both routes:\n- /openai/{endpoint:path} - Standard OpenAI passthrough route\n- /openai_passthrough/{endpoint:path} - Dedicated passthrough route (recommended for Responses API)\n\nUse /openai_passthrough/* when you need guaranteed passthrough to OpenAI without conflicts\nwith LiteLLM's native implementations (e.g., for the Responses API at /v1/responses).\n\nExamples:\n    Standard route:\n    - /openai/v1/chat/completions\n    - /openai/v1/assistants\n    - /openai/v1/threads\n\n    Dedicated passthrough (for Responses API):\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n",
           "operationId": "openai_proxy_route_openai__endpoint__delete",
           "parameters": [
             {
@@ -27859,7 +27859,7 @@
           ]
         },
         "get": {
-          "description": "Pass-through endpoint for OpenAI API calls.\n\nAvailable on both routes:\n- /openai/{endpoint:path} - Standard OpenAI passthrough route\n- /openai_passthrough/{endpoint:path} - Dedicated passthrough route (recommended for Responses API)\n\nUse /openai_passthrough/* when you need guaranteed passthrough to OpenAI without conflicts\nwith LiteLLM's native implementations (e.g., for the Responses API at /v1/responses).\n\nExamples:\n    Standard route:\n    - /openai/v1/chat/completions\n    - /openai/v1/assistants\n    - /openai/v1/threads\n\n    Dedicated passthrough (for Responses API):\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n[Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)",
+          "description": "Pass-through endpoint for OpenAI API calls.\n\nAvailable on both routes:\n- /openai/{endpoint:path} - Standard OpenAI passthrough route\n- /openai_passthrough/{endpoint:path} - Dedicated passthrough route (recommended for Responses API)\n\nUse /openai_passthrough/* when you need guaranteed passthrough to OpenAI without conflicts\nwith LiteLLM's native implementations (e.g., for the Responses API at /v1/responses).\n\nExamples:\n    Standard route:\n    - /openai/v1/chat/completions\n    - /openai/v1/assistants\n    - /openai/v1/threads\n\n    Dedicated passthrough (for Responses API):\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n",
           "operationId": "openai_proxy_route_openai__endpoint__get",
           "parameters": [
             {
@@ -27903,7 +27903,7 @@
           ]
         },
         "patch": {
-          "description": "Pass-through endpoint for OpenAI API calls.\n\nAvailable on both routes:\n- /openai/{endpoint:path} - Standard OpenAI passthrough route\n- /openai_passthrough/{endpoint:path} - Dedicated passthrough route (recommended for Responses API)\n\nUse /openai_passthrough/* when you need guaranteed passthrough to OpenAI without conflicts\nwith LiteLLM's native implementations (e.g., for the Responses API at /v1/responses).\n\nExamples:\n    Standard route:\n    - /openai/v1/chat/completions\n    - /openai/v1/assistants\n    - /openai/v1/threads\n\n    Dedicated passthrough (for Responses API):\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n[Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)",
+          "description": "Pass-through endpoint for OpenAI API calls.\n\nAvailable on both routes:\n- /openai/{endpoint:path} - Standard OpenAI passthrough route\n- /openai_passthrough/{endpoint:path} - Dedicated passthrough route (recommended for Responses API)\n\nUse /openai_passthrough/* when you need guaranteed passthrough to OpenAI without conflicts\nwith LiteLLM's native implementations (e.g., for the Responses API at /v1/responses).\n\nExamples:\n    Standard route:\n    - /openai/v1/chat/completions\n    - /openai/v1/assistants\n    - /openai/v1/threads\n\n    Dedicated passthrough (for Responses API):\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n",
           "operationId": "openai_proxy_route_openai__endpoint__patch",
           "parameters": [
             {
@@ -27947,7 +27947,7 @@
           ]
         },
         "post": {
-          "description": "Pass-through endpoint for OpenAI API calls.\n\nAvailable on both routes:\n- /openai/{endpoint:path} - Standard OpenAI passthrough route\n- /openai_passthrough/{endpoint:path} - Dedicated passthrough route (recommended for Responses API)\n\nUse /openai_passthrough/* when you need guaranteed passthrough to OpenAI without conflicts\nwith LiteLLM's native implementations (e.g., for the Responses API at /v1/responses).\n\nExamples:\n    Standard route:\n    - /openai/v1/chat/completions\n    - /openai/v1/assistants\n    - /openai/v1/threads\n\n    Dedicated passthrough (for Responses API):\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n[Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)",
+          "description": "Pass-through endpoint for OpenAI API calls.\n\nAvailable on both routes:\n- /openai/{endpoint:path} - Standard OpenAI passthrough route\n- /openai_passthrough/{endpoint:path} - Dedicated passthrough route (recommended for Responses API)\n\nUse /openai_passthrough/* when you need guaranteed passthrough to OpenAI without conflicts\nwith LiteLLM's native implementations (e.g., for the Responses API at /v1/responses).\n\nExamples:\n    Standard route:\n    - /openai/v1/chat/completions\n    - /openai/v1/assistants\n    - /openai/v1/threads\n\n    Dedicated passthrough (for Responses API):\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n",
           "operationId": "openai_proxy_route_openai__endpoint__post",
           "parameters": [
             {
@@ -27991,7 +27991,7 @@
           ]
         },
         "put": {
-          "description": "Pass-through endpoint for OpenAI API calls.\n\nAvailable on both routes:\n- /openai/{endpoint:path} - Standard OpenAI passthrough route\n- /openai_passthrough/{endpoint:path} - Dedicated passthrough route (recommended for Responses API)\n\nUse /openai_passthrough/* when you need guaranteed passthrough to OpenAI without conflicts\nwith LiteLLM's native implementations (e.g., for the Responses API at /v1/responses).\n\nExamples:\n    Standard route:\n    - /openai/v1/chat/completions\n    - /openai/v1/assistants\n    - /openai/v1/threads\n\n    Dedicated passthrough (for Responses API):\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n[Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)",
+          "description": "Pass-through endpoint for OpenAI API calls.\n\nAvailable on both routes:\n- /openai/{endpoint:path} - Standard OpenAI passthrough route\n- /openai_passthrough/{endpoint:path} - Dedicated passthrough route (recommended for Responses API)\n\nUse /openai_passthrough/* when you need guaranteed passthrough to OpenAI without conflicts\nwith LiteLLM's native implementations (e.g., for the Responses API at /v1/responses).\n\nExamples:\n    Standard route:\n    - /openai/v1/chat/completions\n    - /openai/v1/assistants\n    - /openai/v1/threads\n\n    Dedicated passthrough (for Responses API):\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n",
           "operationId": "openai_proxy_route_openai__endpoint__put",
           "parameters": [
             {
@@ -28037,7 +28037,7 @@
       },
       "/openai_passthrough/{endpoint}": {
         "delete": {
-          "description": "Dedicated pass-through to the OpenAI API with no overlap with LiteLLM's native\nimplementations (e.g. the Responses API at /v1/responses).\n\nExamples:\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n[Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)",
+          "description": "Dedicated pass-through to the OpenAI API with no overlap with LiteLLM's native\nimplementations (e.g. the Responses API at /v1/responses).\n\nExamples:\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n",
           "operationId": "openai_passthrough_route_openai_passthrough__endpoint__delete",
           "parameters": [
             {
@@ -28081,7 +28081,7 @@
           ]
         },
         "get": {
-          "description": "Dedicated pass-through to the OpenAI API with no overlap with LiteLLM's native\nimplementations (e.g. the Responses API at /v1/responses).\n\nExamples:\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n[Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)",
+          "description": "Dedicated pass-through to the OpenAI API with no overlap with LiteLLM's native\nimplementations (e.g. the Responses API at /v1/responses).\n\nExamples:\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n",
           "operationId": "openai_passthrough_route_openai_passthrough__endpoint__get",
           "parameters": [
             {
@@ -28125,7 +28125,7 @@
           ]
         },
         "patch": {
-          "description": "Dedicated pass-through to the OpenAI API with no overlap with LiteLLM's native\nimplementations (e.g. the Responses API at /v1/responses).\n\nExamples:\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n[Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)",
+          "description": "Dedicated pass-through to the OpenAI API with no overlap with LiteLLM's native\nimplementations (e.g. the Responses API at /v1/responses).\n\nExamples:\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n",
           "operationId": "openai_passthrough_route_openai_passthrough__endpoint__patch",
           "parameters": [
             {
@@ -28169,7 +28169,7 @@
           ]
         },
         "post": {
-          "description": "Dedicated pass-through to the OpenAI API with no overlap with LiteLLM's native\nimplementations (e.g. the Responses API at /v1/responses).\n\nExamples:\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n[Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)",
+          "description": "Dedicated pass-through to the OpenAI API with no overlap with LiteLLM's native\nimplementations (e.g. the Responses API at /v1/responses).\n\nExamples:\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n",
           "operationId": "openai_passthrough_route_openai_passthrough__endpoint__post",
           "parameters": [
             {
@@ -28213,7 +28213,7 @@
           ]
         },
         "put": {
-          "description": "Dedicated pass-through to the OpenAI API with no overlap with LiteLLM's native\nimplementations (e.g. the Responses API at /v1/responses).\n\nExamples:\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n[Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)",
+          "description": "Dedicated pass-through to the OpenAI API with no overlap with LiteLLM's native\nimplementations (e.g. the Responses API at /v1/responses).\n\nExamples:\n    - /openai_passthrough/v1/responses\n    - /openai_passthrough/v1/responses/{response_id}\n    - /openai_passthrough/v1/responses/{response_id}/input_items\n\n",
           "operationId": "openai_passthrough_route_openai_passthrough__endpoint__put",
           "parameters": [
             {
@@ -28476,7 +28476,7 @@
       },
       "/tinyfish/{endpoint}": {
         "get": {
-          "description": "Pass-through for the TinyFish Agent API (goal-based web automation).\n\nForwarded endpoints:\n- POST /v1/automation/run        \u2014 run to completion (blocking)\n- POST /v1/automation/run-async  \u2014 submit a run, poll GET /v1/runs/{id} for the result\n- POST /v1/automation/run-sse    \u2014 run with SSE progress events\n- GET  /v1/runs/{id}             \u2014 run status / result\n- POST /v1/runs/{id}/cancel      \u2014 cancel a run\n\nEvery other Agent API endpoint (vault, wallet, browser profiles, and the GET /v1/runs\nlisting, which would let any caller discover other callers' run ids) returns 403: all\nproxy callers share one upstream key.\n\nCredential lookup order:\n1. passthrough_endpoint_router (config.yaml deployments with use_in_pass_through)\n2. TINYFISH_API_KEY environment variable\n\n[Docs](https://docs.litellm.ai/docs/pass_through/tinyfish)",
+          "description": "Pass-through for the TinyFish Agent API (goal-based web automation).\n\nForwarded endpoints:\n- POST /v1/automation/run        \u2014 run to completion (blocking)\n- POST /v1/automation/run-async  \u2014 submit a run, poll GET /v1/runs/{id} for the result\n- POST /v1/automation/run-sse    \u2014 run with SSE progress events\n- GET  /v1/runs/{id}             \u2014 run status / result\n- POST /v1/runs/{id}/cancel      \u2014 cancel a run\n\nEvery other Agent API endpoint (vault, wallet, browser profiles, and the GET /v1/runs\nlisting, which would let any caller discover other callers' run ids) returns 403: all\nproxy callers share one upstream key.\n\nCredential lookup order:\n1. passthrough_endpoint_router (config.yaml deployments with use_in_pass_through)\n2. TINYFISH_API_KEY environment variable\n\n",
           "operationId": "tinyfish_proxy_route_tinyfish__endpoint__get",
           "parameters": [
             {
@@ -28520,7 +28520,7 @@
           ]
         },
         "post": {
-          "description": "Pass-through for the TinyFish Agent API (goal-based web automation).\n\nForwarded endpoints:\n- POST /v1/automation/run        \u2014 run to completion (blocking)\n- POST /v1/automation/run-async  \u2014 submit a run, poll GET /v1/runs/{id} for the result\n- POST /v1/automation/run-sse    \u2014 run with SSE progress events\n- GET  /v1/runs/{id}             \u2014 run status / result\n- POST /v1/runs/{id}/cancel      \u2014 cancel a run\n\nEvery other Agent API endpoint (vault, wallet, browser profiles, and the GET /v1/runs\nlisting, which would let any caller discover other callers' run ids) returns 403: all\nproxy callers share one upstream key.\n\nCredential lookup order:\n1. passthrough_endpoint_router (config.yaml deployments with use_in_pass_through)\n2. TINYFISH_API_KEY environment variable\n\n[Docs](https://docs.litellm.ai/docs/pass_through/tinyfish)",
+          "description": "Pass-through for the TinyFish Agent API (goal-based web automation).\n\nForwarded endpoints:\n- POST /v1/automation/run        \u2014 run to completion (blocking)\n- POST /v1/automation/run-async  \u2014 submit a run, poll GET /v1/runs/{id} for the result\n- POST /v1/automation/run-sse    \u2014 run with SSE progress events\n- GET  /v1/runs/{id}             \u2014 run status / result\n- POST /v1/runs/{id}/cancel      \u2014 cancel a run\n\nEvery other Agent API endpoint (vault, wallet, browser profiles, and the GET /v1/runs\nlisting, which would let any caller discover other callers' run ids) returns 403: all\nproxy callers share one upstream key.\n\nCredential lookup order:\n1. passthrough_endpoint_router (config.yaml deployments with use_in_pass_through)\n2. TINYFISH_API_KEY environment variable\n\n",
           "operationId": "tinyfish_proxy_route_tinyfish__endpoint__post",
           "parameters": [
             {
@@ -28566,7 +28566,7 @@
       },
       "/transcribe": {
         "post": {
-          "description": "AWS-SDK-shaped pass-through for Amazon Transcribe: point the SDK's `endpoint_url`\nat `/transcribe` and the operation is read from the `X-Amz-Target` header, per the\nAWS JSON 1.1 protocol.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/transcribe)",
+          "description": "AWS-SDK-shaped pass-through for Amazon Transcribe: point the SDK's `endpoint_url`\nat `/transcribe` and the operation is read from the `X-Amz-Target` header, per the\nAWS JSON 1.1 protocol.\n\n",
           "operationId": "transcribe_sdk_proxy_route_transcribe_post",
           "responses": {
             "200": {
@@ -28591,7 +28591,7 @@
       },
       "/transcribe/{operation}": {
         "post": {
-          "description": "Pass-through for the Amazon Transcribe API, e.g. `POST /transcribe/StartTranscriptionJob`.\n\nThe request body is forwarded to the AWS JSON 1.1 API and signed with SigV4 using the\nproxy's AWS credentials. Standard jobs are tagged with the calling key's owner so that\nonly that owner (or a proxy admin) can read or delete them, and keys other than proxy\nadmins may only read media from and write transcripts to the S3 buckets listed in\n`general_settings.transcribe_media_buckets`; account-wide operations\nsuch as ListTranscriptionJobs are limited to proxy admins. Streaming transcription\n(`transcribestreaming`) uses a separate HTTP/2 event-stream protocol and is not served\nby this route.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/transcribe)",
+          "description": "Pass-through for the Amazon Transcribe API, e.g. `POST /transcribe/StartTranscriptionJob`.\n\nThe request body is forwarded to the AWS JSON 1.1 API and signed with SigV4 using the\nproxy's AWS credentials. Standard jobs are tagged with the calling key's owner so that\nonly that owner (or a proxy admin) can read or delete them, and keys other than proxy\nadmins may only read media from and write transcripts to the S3 buckets listed in\n`general_settings.transcribe_media_buckets`; account-wide operations\nsuch as ListTranscriptionJobs are limited to proxy admins. Streaming transcription\n(`transcribestreaming`) uses a separate HTTP/2 event-stream protocol and is not served\nby this route.\n\n",
           "operationId": "transcribe_proxy_route_transcribe__operation__post",
           "parameters": [
             {
@@ -28637,7 +28637,7 @@
       },
       "/typesafe/{endpoint}": {
         "delete": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/typesafe)",
+          "description": "",
           "operationId": "typesafe_proxy_route_typesafe__endpoint__delete",
           "parameters": [
             {
@@ -28681,7 +28681,7 @@
           ]
         },
         "get": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/typesafe)",
+          "description": "",
           "operationId": "typesafe_proxy_route_typesafe__endpoint__get",
           "parameters": [
             {
@@ -28725,7 +28725,7 @@
           ]
         },
         "patch": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/typesafe)",
+          "description": "",
           "operationId": "typesafe_proxy_route_typesafe__endpoint__patch",
           "parameters": [
             {
@@ -28769,7 +28769,7 @@
           ]
         },
         "post": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/typesafe)",
+          "description": "",
           "operationId": "typesafe_proxy_route_typesafe__endpoint__post",
           "parameters": [
             {
@@ -28813,7 +28813,7 @@
           ]
         },
         "put": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/typesafe)",
+          "description": "",
           "operationId": "typesafe_proxy_route_typesafe__endpoint__put",
           "parameters": [
             {
@@ -29056,7 +29056,7 @@
       },
       "/vertex_ai/{endpoint}": {
         "delete": {
-          "description": "Call LiteLLM proxy via Vertex AI SDK.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/vertex_ai)",
+          "description": "Call LiteLLM proxy via Vertex AI SDK.\n\n",
           "operationId": "vertex_proxy_route_vertex_ai__endpoint__delete",
           "parameters": [
             {
@@ -29100,7 +29100,7 @@
           ]
         },
         "get": {
-          "description": "Call LiteLLM proxy via Vertex AI SDK.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/vertex_ai)",
+          "description": "Call LiteLLM proxy via Vertex AI SDK.\n\n",
           "operationId": "vertex_proxy_route_vertex_ai__endpoint__get",
           "parameters": [
             {
@@ -29144,7 +29144,7 @@
           ]
         },
         "patch": {
-          "description": "Call LiteLLM proxy via Vertex AI SDK.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/vertex_ai)",
+          "description": "Call LiteLLM proxy via Vertex AI SDK.\n\n",
           "operationId": "vertex_proxy_route_vertex_ai__endpoint__patch",
           "parameters": [
             {
@@ -29188,7 +29188,7 @@
           ]
         },
         "post": {
-          "description": "Call LiteLLM proxy via Vertex AI SDK.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/vertex_ai)",
+          "description": "Call LiteLLM proxy via Vertex AI SDK.\n\n",
           "operationId": "vertex_proxy_route_vertex_ai__endpoint__post",
           "parameters": [
             {
@@ -29232,7 +29232,7 @@
           ]
         },
         "put": {
-          "description": "Call LiteLLM proxy via Vertex AI SDK.\n\n[Docs](https://docs.litellm.ai/docs/pass_through/vertex_ai)",
+          "description": "Call LiteLLM proxy via Vertex AI SDK.\n\n",
           "operationId": "vertex_proxy_route_vertex_ai__endpoint__put",
           "parameters": [
             {
@@ -29278,7 +29278,7 @@
       },
       "/vllm/{endpoint}": {
         "delete": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/vllm)",
+          "description": "",
           "operationId": "vllm_proxy_route_vllm__endpoint__delete",
           "parameters": [
             {
@@ -29322,7 +29322,7 @@
           ]
         },
         "get": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/vllm)",
+          "description": "",
           "operationId": "vllm_proxy_route_vllm__endpoint__get",
           "parameters": [
             {
@@ -29366,7 +29366,7 @@
           ]
         },
         "patch": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/vllm)",
+          "description": "",
           "operationId": "vllm_proxy_route_vllm__endpoint__patch",
           "parameters": [
             {
@@ -29410,7 +29410,7 @@
           ]
         },
         "post": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/vllm)",
+          "description": "",
           "operationId": "vllm_proxy_route_vllm__endpoint__post",
           "parameters": [
             {
@@ -29454,7 +29454,7 @@
           ]
         },
         "put": {
-          "description": "[Docs](https://docs.litellm.ai/docs/pass_through/vllm)",
+          "description": "",
           "operationId": "vllm_proxy_route_vllm__endpoint__put",
           "parameters": [
             {
@@ -34336,7 +34336,7 @@
       },
       "/guardrails/register": {
         "post": {
-          "description": "Register a guardrail for onboarding (team submission).\n\nAccepts a guardrail config in the\n[Generic Guardrail API](https://docs.litellm.ai/docs/adding_provider/generic_guardrail_api) format.\nThe submission is stored with status `pending_review` until an admin approves it.",
+          "description": "Register a guardrail for onboarding (team submission).\n\nAccepts a guardrail config in the\nGeneric Guardrail API format.\nThe submission is stored with status `pending_review` until an admin approves it.",
           "operationId": "register_guardrail_guardrails_register_post_2",
           "requestBody": {
             "content": {
@@ -46541,7 +46541,7 @@
     "paths": {
       "/prompts": {
         "post": {
-          "description": "Create a new prompt\n\n\ud83d\udc49 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)\n\nExample Request:\n```bash\ncurl -X POST \"http://localhost:4000/prompts\" \\\n    -H \"Authorization: Bearer <your_api_key>\" \\\n    -H \"Content-Type: application/json\" \\\n    -d '{\n        \"prompt_id\": \"my_prompt\",\n        \"litellm_params\": {\n            \"prompt_id\": \"my_prompt\",\n            \"prompt_integration\": \"dotprompt\",\n            \"prompt_data\": {\"content\": \"This is a prompt\", \"metadata\": {\"model\": \"gpt-4\"}}\n        },\n        \"prompt_info\": {\n            \"prompt_type\": \"config\"\n        }\n    }'\n```",
+          "description": "Create a new prompt\n\n\ud83d\udc49\n\nExample Request:\n```bash\ncurl -X POST \"http://localhost:4000/prompts\" \\\n    -H \"Authorization: Bearer <your_api_key>\" \\\n    -H \"Content-Type: application/json\" \\\n    -d '{\n        \"prompt_id\": \"my_prompt\",\n        \"litellm_params\": {\n            \"prompt_id\": \"my_prompt\",\n            \"prompt_integration\": \"dotprompt\",\n            \"prompt_data\": {\"content\": \"This is a prompt\", \"metadata\": {\"model\": \"gpt-4\"}}\n        },\n        \"prompt_info\": {\n            \"prompt_type\": \"config\"\n        }\n    }'\n```",
           "operationId": "create_prompt_prompts_post",
           "requestBody": {
             "content": {
@@ -46586,7 +46586,7 @@
       },
       "/prompts/list": {
         "get": {
-          "description": "List the prompts that are available on the proxy server\n\n\ud83d\udc49 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)\n\nExample Request:\n```bash\ncurl -X GET \"http://localhost:4000/prompts/list\" -H \"Authorization: Bearer <your_api_key>\"\n```\n\nExample Response:\n```json\n{\n    \"prompts\": [\n        {\n            \"prompt_id\": \"my_prompt_id\",\n            \"litellm_params\": {\n                \"prompt_id\": \"my_prompt_id\",\n                \"prompt_integration\": \"dotprompt\",\n                \"prompt_directory\": \"/path/to/prompts\"\n            },\n            \"prompt_info\": {\n                \"prompt_type\": \"config\"\n            },\n            \"created_at\": \"2023-11-09T12:34:56.789Z\",\n            \"updated_at\": \"2023-11-09T12:34:56.789Z\"\n        }\n    ]\n}\n```",
+          "description": "List the prompts that are available on the proxy server\n\n\ud83d\udc49\n\nExample Request:\n```bash\ncurl -X GET \"http://localhost:4000/prompts/list\" -H \"Authorization: Bearer <your_api_key>\"\n```\n\nExample Response:\n```json\n{\n    \"prompts\": [\n        {\n            \"prompt_id\": \"my_prompt_id\",\n            \"litellm_params\": {\n                \"prompt_id\": \"my_prompt_id\",\n                \"prompt_integration\": \"dotprompt\",\n                \"prompt_directory\": \"/path/to/prompts\"\n            },\n            \"prompt_info\": {\n                \"prompt_type\": \"config\"\n            },\n            \"created_at\": \"2023-11-09T12:34:56.789Z\",\n            \"updated_at\": \"2023-11-09T12:34:56.789Z\"\n        }\n    ]\n}\n```",
           "operationId": "list_prompts_prompts_list_get",
           "parameters": [
             {
@@ -46641,7 +46641,7 @@
       },
       "/prompts/test": {
         "post": {
-          "description": "Test a prompt by rendering it with variables and executing an LLM call.\n\nThis endpoint allows testing prompts before saving them to the database.\nThe response is always streamed.\n\n\ud83d\udc49 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)\n\nExample Request:\n```bash\ncurl -X POST \"http://localhost:4000/prompts/test\" \\\n    -H \"Authorization: Bearer <your_api_key>\" \\\n    -H \"Content-Type: application/json\" \\\n    -d '{\n        \"dotprompt_content\": \"---\\nmodel: gpt-4o\\ntemperature: 0.7\\n---\\n\\nUser: Hello {{name}}\",\n        \"prompt_variables\": {\n            \"name\": \"World\"\n        }\n    }'\n```",
+          "description": "Test a prompt by rendering it with variables and executing an LLM call.\n\nThis endpoint allows testing prompts before saving them to the database.\nThe response is always streamed.\n\n\ud83d\udc49\n\nExample Request:\n```bash\ncurl -X POST \"http://localhost:4000/prompts/test\" \\\n    -H \"Authorization: Bearer <your_api_key>\" \\\n    -H \"Content-Type: application/json\" \\\n    -d '{\n        \"dotprompt_content\": \"---\\nmodel: gpt-4o\\ntemperature: 0.7\\n---\\n\\nUser: Hello {{name}}\",\n        \"prompt_variables\": {\n            \"name\": \"World\"\n        }\n    }'\n```",
           "operationId": "test_prompt_prompts_test_post",
           "requestBody": {
             "content": {
@@ -46686,7 +46686,7 @@
       },
       "/prompts/{prompt_id}": {
         "delete": {
-          "description": "Delete a prompt\n\n\ud83d\udc49 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)\n\nExample Request:\n```bash\ncurl -X DELETE \"http://localhost:4000/prompts/my_prompt_id\" \\\n    -H \"Authorization: Bearer <your_api_key>\"\n```\n\nExample Response:\n```json\n{\n    \"message\": \"Prompt my_prompt_id deleted successfully\"\n}\n```",
+          "description": "Delete a prompt\n\n\ud83d\udc49\n\nExample Request:\n```bash\ncurl -X DELETE \"http://localhost:4000/prompts/my_prompt_id\" \\\n    -H \"Authorization: Bearer <your_api_key>\"\n```\n\nExample Response:\n```json\n{\n    \"message\": \"Prompt my_prompt_id deleted successfully\"\n}\n```",
           "operationId": "delete_prompt_prompts__prompt_id__delete",
           "parameters": [
             {
@@ -46746,7 +46746,7 @@
           ]
         },
         "get": {
-          "description": "Get detailed information about a specific prompt by ID, including prompt content\n\n    \ud83d\udc49 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)\n\n    Example Request:\n    ```bash\n    curl -X GET \"http://localhost:4000/prompts/my_prompt_id/info\" \\\n        -H \"Authorization: Bearer <your_api_key>\"\n    ```\n\n    Example Response:\n    ```json\n    {\n        \"prompt_id\": \"my_prompt_id\",\n        \"litellm_params\": {\n            \"prompt_id\": \"my_prompt_id\",\n            \"prompt_integration\": \"dotprompt\",\n            \"prompt_directory\": \"/path/to/prompts\"\n        },\n        \"prompt_info\": {\n            \"prompt_type\": \"config\"\n        },\n        \"created_at\": \"2023-11-09T12:34:56.789Z\",\n        \"updated_at\": \"2023-11-09T12:34:56.789Z\",\n        \"content\": \"System: You are a helpful assistant.\n\nUser: {{user_message}}\"\n    }\n    ```",
+          "description": "Get detailed information about a specific prompt by ID, including prompt content\n\n    \ud83d\udc49\n\n    Example Request:\n    ```bash\n    curl -X GET \"http://localhost:4000/prompts/my_prompt_id/info\" \\\n        -H \"Authorization: Bearer <your_api_key>\"\n    ```\n\n    Example Response:\n    ```json\n    {\n        \"prompt_id\": \"my_prompt_id\",\n        \"litellm_params\": {\n            \"prompt_id\": \"my_prompt_id\",\n            \"prompt_integration\": \"dotprompt\",\n            \"prompt_directory\": \"/path/to/prompts\"\n        },\n        \"prompt_info\": {\n            \"prompt_type\": \"config\"\n        },\n        \"created_at\": \"2023-11-09T12:34:56.789Z\",\n        \"updated_at\": \"2023-11-09T12:34:56.789Z\",\n        \"content\": \"System: You are a helpful assistant.\n\nUser: {{user_message}}\"\n    }\n    ```",
           "operationId": "get_prompt_info_prompts__prompt_id__get",
           "parameters": [
             {
@@ -46808,7 +46808,7 @@
           ]
         },
         "patch": {
-          "description": "Partially update an existing prompt\n\n\ud83d\udc49 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)\n\nThis endpoint allows updating specific fields of a prompt without sending the entire object.\nOnly the following fields can be updated:\n- litellm_params: LiteLLM parameters for the prompt\n- prompt_info: Additional information about the prompt\n\nExample Request:\n```bash\ncurl -X PATCH \"http://localhost:4000/prompts/my_prompt_id\" \\\n    -H \"Authorization: Bearer <your_api_key>\" \\\n    -H \"Content-Type: application/json\" \\\n    -d '{\n        \"prompt_info\": {\n            \"prompt_type\": \"db\"\n        }\n    }'\n```",
+          "description": "Partially update an existing prompt\n\n\ud83d\udc49\n\nThis endpoint allows updating specific fields of a prompt without sending the entire object.\nOnly the following fields can be updated:\n- litellm_params: LiteLLM parameters for the prompt\n- prompt_info: Additional information about the prompt\n\nExample Request:\n```bash\ncurl -X PATCH \"http://localhost:4000/prompts/my_prompt_id\" \\\n    -H \"Authorization: Bearer <your_api_key>\" \\\n    -H \"Content-Type: application/json\" \\\n    -d '{\n        \"prompt_info\": {\n            \"prompt_type\": \"db\"\n        }\n    }'\n```",
           "operationId": "patch_prompt_prompts__prompt_id__patch",
           "parameters": [
             {
@@ -46878,7 +46878,7 @@
           ]
         },
         "put": {
-          "description": "Update an existing prompt\n\n\ud83d\udc49 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)\n\nExample Request:\n```bash\ncurl -X PUT \"http://localhost:4000/prompts/my_prompt_id\" \\\n    -H \"Authorization: Bearer <your_api_key>\" \\\n    -H \"Content-Type: application/json\" \\\n    -d '{\n        \"prompt_id\": \"my_prompt\",\n        \"litellm_params\": {\n            \"prompt_id\": \"my_prompt\",\n                \"prompt_integration\": \"dotprompt\",\n                \"prompt_directory\": \"/path/to/prompts\"\n            },\n            \"prompt_info\": {\n                \"prompt_type\": \"config\"\n            }\n        }\n    }'\n```",
+          "description": "Update an existing prompt\n\n\ud83d\udc49\n\nExample Request:\n```bash\ncurl -X PUT \"http://localhost:4000/prompts/my_prompt_id\" \\\n    -H \"Authorization: Bearer <your_api_key>\" \\\n    -H \"Content-Type: application/json\" \\\n    -d '{\n        \"prompt_id\": \"my_prompt\",\n        \"litellm_params\": {\n            \"prompt_id\": \"my_prompt\",\n                \"prompt_integration\": \"dotprompt\",\n                \"prompt_directory\": \"/path/to/prompts\"\n            },\n            \"prompt_info\": {\n                \"prompt_type\": \"config\"\n            }\n        }\n    }'\n```",
           "operationId": "update_prompt_prompts__prompt_id__put",
           "parameters": [
             {
@@ -46934,7 +46934,7 @@
       },
       "/prompts/{prompt_id}/info": {
         "get": {
-          "description": "Get detailed information about a specific prompt by ID, including prompt content\n\n    \ud83d\udc49 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)\n\n    Example Request:\n    ```bash\n    curl -X GET \"http://localhost:4000/prompts/my_prompt_id/info\" \\\n        -H \"Authorization: Bearer <your_api_key>\"\n    ```\n\n    Example Response:\n    ```json\n    {\n        \"prompt_id\": \"my_prompt_id\",\n        \"litellm_params\": {\n            \"prompt_id\": \"my_prompt_id\",\n            \"prompt_integration\": \"dotprompt\",\n            \"prompt_directory\": \"/path/to/prompts\"\n        },\n        \"prompt_info\": {\n            \"prompt_type\": \"config\"\n        },\n        \"created_at\": \"2023-11-09T12:34:56.789Z\",\n        \"updated_at\": \"2023-11-09T12:34:56.789Z\",\n        \"content\": \"System: You are a helpful assistant.\n\nUser: {{user_message}}\"\n    }\n    ```",
+          "description": "Get detailed information about a specific prompt by ID, including prompt content\n\n    \ud83d\udc49\n\n    Example Request:\n    ```bash\n    curl -X GET \"http://localhost:4000/prompts/my_prompt_id/info\" \\\n        -H \"Authorization: Bearer <your_api_key>\"\n    ```\n\n    Example Response:\n    ```json\n    {\n        \"prompt_id\": \"my_prompt_id\",\n        \"litellm_params\": {\n            \"prompt_id\": \"my_prompt_id\",\n            \"prompt_integration\": \"dotprompt\",\n            \"prompt_directory\": \"/path/to/prompts\"\n        },\n        \"prompt_info\": {\n            \"prompt_type\": \"config\"\n        },\n        \"created_at\": \"2023-11-09T12:34:56.789Z\",\n        \"updated_at\": \"2023-11-09T12:34:56.789Z\",\n        \"content\": \"System: You are a helpful assistant.\n\nUser: {{user_message}}\"\n    }\n    ```",
           "operationId": "get_prompt_info_prompts__prompt_id__info_get",
           "parameters": [
             {
@@ -46998,7 +46998,7 @@
       },
       "/prompts/{prompt_id}/versions": {
         "get": {
-          "description": "Get all versions of a specific prompt by base prompt ID\n\n\ud83d\udc49 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)\n\nExample Request:\n```bash\ncurl -X GET \"http://localhost:4000/prompts/jack_success/versions\" \\\n    -H \"Authorization: Bearer <your_api_key>\"\n```\n\nExample Response:\n```json\n{\n    \"prompts\": [\n        {\n            \"prompt_id\": \"jack_success.v1\",\n            \"litellm_params\": {...},\n            \"prompt_info\": {\"prompt_type\": \"db\"},\n            \"created_at\": \"2023-11-09T12:34:56.789Z\",\n            \"updated_at\": \"2023-11-09T12:34:56.789Z\"\n        },\n        {\n            \"prompt_id\": \"jack_success.v2\",\n            \"litellm_params\": {...},\n            \"prompt_info\": {\"prompt_type\": \"db\"},\n            \"created_at\": \"2023-11-09T13:45:12.345Z\",\n            \"updated_at\": \"2023-11-09T13:45:12.345Z\"\n        }\n    ]\n}\n```",
+          "description": "Get all versions of a specific prompt by base prompt ID\n\n\ud83d\udc49\n\nExample Request:\n```bash\ncurl -X GET \"http://localhost:4000/prompts/jack_success/versions\" \\\n    -H \"Authorization: Bearer <your_api_key>\"\n```\n\nExample Response:\n```json\n{\n    \"prompts\": [\n        {\n            \"prompt_id\": \"jack_success.v1\",\n            \"litellm_params\": {...},\n            \"prompt_info\": {\"prompt_type\": \"db\"},\n            \"created_at\": \"2023-11-09T12:34:56.789Z\",\n            \"updated_at\": \"2023-11-09T12:34:56.789Z\"\n        },\n        {\n            \"prompt_id\": \"jack_success.v2\",\n            \"litellm_params\": {...},\n            \"prompt_info\": {\"prompt_type\": \"db\"},\n            \"created_at\": \"2023-11-09T13:45:12.345Z\",\n            \"updated_at\": \"2023-11-09T13:45:12.345Z\"\n        }\n    ]\n}\n```",
           "operationId": "get_prompt_versions_prompts__prompt_id__versions_get",
           "parameters": [
             {

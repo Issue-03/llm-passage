@@ -319,7 +319,7 @@ tools = [{"name": "WebSearch", ...}]
 1. Logger detects WebSearch tool_use
 2. Looks up search provider from router
 3. Executes `litellm.asearch(query="what is litellm", search_provider="perplexity")`
-4. Gets results: `"Title: LiteLLM Docs\nURL: docs.litellm.ai\n..."`
+4. Gets results: `"Title: LiteLLM Docs\nURL: docs.example.com\n..."`
 
 ### Follow-Up Request (Internal)
 ```python

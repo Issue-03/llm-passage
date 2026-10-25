@@ -1193,7 +1193,7 @@ async def test_patch_guardrail_endpoint(
         )
 
     elif scenario == "sync_fails_invalid_config":
-        # Maintainer finding on BerriAI/litellm#34940: a ValueError from
+        # Maintainer finding: a ValueError from
         # sync_guardrail_from_db (e.g. an invalid on_flagged combination) must
         # roll back the DB write and surface a 422, not persist the rejected
         # config with a 200.

@@ -519,7 +519,7 @@ async def _resolve_autorouter_presets(
     url: str,
     fetch: Callable[[str], Awaitable[Mapping[str, AutoRouterPresetRecord]]],
 ) -> Mapping[str, AutoRouterPresetRecord]:
-    if os.getenv("LITELLM_LOCAL_AUTOROUTER_PRESETS", "").lower() == "true":
+    if not url or os.getenv("LITELLM_LOCAL_AUTOROUTER_PRESETS", "").lower() == "true":
         return _load_bundled_autorouter_presets()
     try:
         return await fetch(url)

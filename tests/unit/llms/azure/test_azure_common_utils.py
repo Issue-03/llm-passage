@@ -1680,7 +1680,7 @@ def test_azure_v1_api_with_azure_ad_token_provider(api_version):
     The v1 OpenAI client path must forward `azure_ad_token_provider` so Azure AD
     auth works for `api_version` in {"v1", "latest", "preview"}.
 
-    Regression: https://github.com/BerriAI/litellm/issues/27945 — before the fix
+    Regression: — before the fix
     the v1 branch only forwarded `api_key`, so AD-only configs raised
     "The api_key client option must be set" on every request.
 

@@ -32,7 +32,7 @@ async def openai_passthrough_route(
         - /openai_passthrough/v1/responses/{response_id}
         - /openai_passthrough/v1/responses/{response_id}/input_items
 
-    [Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)
+
     """
     from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import openai_proxy_route
 

@@ -428,7 +428,6 @@ def test_opus_4_5_model_detection():
 #     "invalid beta flag" error for others (e.g., structured-outputs, mcp-servers).
 #     This test ensures unsupported headers are filtered while keeping supported ones.
 
-#     Fixes: https://github.com/BerriAI/litellm/issues/16726
 #     """
 #     config = AmazonAnthropicClaudeConfig()
 

@@ -8,7 +8,7 @@ configures such a model in LiteLLM they use the double-prefixed form
 the outer "openrouter/" provider prefix and leave the inner one intact,
 so the correct model ID is sent to the OpenRouter API.
 
-See: https://github.com/BerriAI/litellm/issues/16353
+
 """
 
 

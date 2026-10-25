@@ -498,7 +498,6 @@ def test_transform_messages_helper_strips_thinking_blocks_but_keeps_reasoning_co
 # coming from MCP servers (legacy `definitions`) or OpenAPI-derived gateways
 # such as AWS AgentCore (`components.schemas`) used to leave dangling `$ref`
 # pointers, causing upstream "Error resolving schema reference" failures. See
-# https://github.com/BerriAI/litellm/issues/26692.
 # -----------------------------------------------------------------------------
 
 

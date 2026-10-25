@@ -1661,7 +1661,6 @@ def test_call_with_key_over_budget(prisma_client):
 def test_call_with_key_over_budget_no_cache(prisma_client):
     # 12. Make a call with a key over budget, expect to fail
     # ✅  Tests if spend trackign works when the key does not exist in memory
-    # Related to this: https://github.com/BerriAI/litellm/issues/3920
     setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
     setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
 

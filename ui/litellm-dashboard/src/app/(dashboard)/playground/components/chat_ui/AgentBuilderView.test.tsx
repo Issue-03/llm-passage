@@ -311,7 +311,7 @@ describe("AgentBuilderView", () => {
     expect(screen.getByText(/Agent Builder is experimental/)).toBeInTheDocument();
     expect(within(screen.getByText(/Agent Builder is experimental/)).getByRole("link")).toHaveAttribute(
       "href",
-      "mailto:product@berri.ai",
+      "mailto:user@example.com",
     );
   });
 });

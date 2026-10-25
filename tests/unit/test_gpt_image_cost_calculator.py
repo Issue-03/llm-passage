@@ -2,7 +2,7 @@
 Tests for OpenAI gpt-image-1 cost calculator
 
 This tests the fix for GitHub issue #13847:
-https://github.com/BerriAI/litellm/issues/13847
+
 
 gpt-image-1 uses token-based pricing:
 - Text Input: $5.00/1M tokens

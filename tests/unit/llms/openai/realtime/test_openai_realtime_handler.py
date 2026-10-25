@@ -286,7 +286,6 @@ async def test_async_realtime_uses_max_size_parameter():
     Test that the async_realtime method uses the REALTIME_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES
     constant for the max_size parameter to handle large base64 audio payloads.
 
-    This verifies the fix for: https://github.com/BerriAI/litellm/issues/15747
     """
     from litellm.constants import REALTIME_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES
     from litellm.llms.openai.realtime.handler import OpenAIRealtime
@@ -358,7 +357,6 @@ async def test_async_realtime_ws_url_has_no_ssl():
     Test that when using http:// api_base (converted to ws://), the ssl argument
     is set to None. The websockets library doesn't accept ssl argument for ws:// URIs.
 
-    This verifies the fix for: https://github.com/BerriAI/litellm/issues/19222
     """
     from litellm.llms.openai.realtime.handler import OpenAIRealtime
     from litellm.types.realtime import RealtimeQueryParams

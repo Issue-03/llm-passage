@@ -2,7 +2,7 @@
 Unit tests for Responses API image generation support
 
 Tests the fix for Issue #16227:
-https://github.com/BerriAI/litellm/issues/16227
+
 
 Verifies that image generation outputs are correctly transformed
 from /chat/completions format to /responses API format.

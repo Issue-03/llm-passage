@@ -7486,7 +7486,7 @@ def test_update_kwargs_with_deployment_propagates_model_tags():
     kwargs metadata when _update_kwargs_with_deployment is called.
 
     This ensures model-level tags defined in config.yaml appear in SpendLogs.
-    See: https://github.com/BerriAI/litellm/issues/XXXX
+
     """
     router = litellm.Router(
         model_list=[

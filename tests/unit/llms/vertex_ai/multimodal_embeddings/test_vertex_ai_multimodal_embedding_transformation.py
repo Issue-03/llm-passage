@@ -147,7 +147,7 @@ class TestVertexMultimodalEmbedding:
         """Test that the dimensions parameter is forwarded as dimension
         in the request body parameters field.
 
-        Fixes: https://github.com/BerriAI/litellm/issues/24392
+
         """
         optional_params = {}
         optional_params = self.config.map_openai_params(

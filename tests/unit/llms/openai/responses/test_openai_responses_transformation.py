@@ -768,7 +768,7 @@ class TestOpenAIResponsesAPIConfig:
         """Test that ResponseCreatedEvent with missing required fields (created_at,
         output) does not crash but falls back to model_construct.
 
-        Reproduces https://github.com/BerriAI/litellm/issues/20570
+        Reproduces
         """
         from litellm.types.llms.openai import ResponseCreatedEvent
 
@@ -797,7 +797,7 @@ class TestOpenAIResponsesAPIConfig:
         """Test that OutputTextDeltaEvent with missing output_index and
         content_index falls back to model_construct without crashing.
 
-        Reproduces https://github.com/BerriAI/litellm/issues/20570
+        Reproduces
         """
         from litellm.types.llms.openai import OutputTextDeltaEvent
 
@@ -823,7 +823,7 @@ class TestOpenAIResponsesAPIConfig:
         """Test that ContentPartAddedEvent with missing output_index and
         content_index falls back to model_construct without crashing.
 
-        Reproduces https://github.com/BerriAI/litellm/issues/20570
+        Reproduces
         """
         from litellm.types.llms.openai import ContentPartAddedEvent
 
@@ -848,7 +848,7 @@ class TestOpenAIResponsesAPIConfig:
         """Test that OutputItemAddedEvent with missing output_index falls back
         to model_construct without crashing.
 
-        Reproduces https://github.com/BerriAI/litellm/issues/20570
+        Reproduces
         """
         from litellm.types.llms.openai import OutputItemAddedEvent
 

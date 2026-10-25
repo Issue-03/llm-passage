@@ -18,7 +18,6 @@ from litellm._uuid import uuid
 from litellm.anthropic_interface.exceptions import AnthropicErrorSseFrame, anthropic_error_sse_frame
 from litellm.litellm_core_utils.bug_report import (
     DISABLE_ENV_VAR,
-    ISSUE_URL_BASE,
     bug_report_notice,
     build_bug_report,
 )
@@ -65,6 +64,16 @@ from litellm.proxy._types import UserAPIKeyAuth as ProxyUserAPIKeyAuth
 from litellm.proxy.utils import ProxyLogging
 from litellm.router import Router
 from litellm.router_utils.add_retry_fallback_headers import prepare_response_for_header_attachment
+
+ISSUE_URL_BASE = "https://issues.example.com/new"
+
+
+@pytest.fixture(autouse=True)
+def _bug_report_issue_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bug report links are off unless an issue URL is configured; turn them on for these tests."""
+    monkeypatch.setenv("LITELLM_BUG_REPORT_ISSUE_URL", "https://issues.example.com/new")
+
+
 
 
 def test_attach_guardrail_information_copies_recorded_entries_onto_model_response():

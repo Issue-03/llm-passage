@@ -200,7 +200,7 @@ def test_gateway_mount_paths_defined():
 def test_gateway_trim_keeps_metrics_mount():
     """The Prometheus /metrics Mount must survive the gateway route trim.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/30291:
+
     ``_is_gateway_route`` used to reject every Mount before the allowlist
     check, so the /metrics Mount registered by
     ``PrometheusLogger._mount_metrics_endpoint()`` was dropped at startup and

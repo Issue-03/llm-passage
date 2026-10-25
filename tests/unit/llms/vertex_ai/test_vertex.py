@@ -1327,7 +1327,7 @@ def test_vertex_embedding_url(model, expected_url):
     """
     Test URL generation for embedding models, including numeric model IDs (fine-tuned models
 
-    Relevant issue: https://github.com/BerriAI/litellm/issues/6482
+
 
     When a fine-tuned embedding model is used, the URL is different from the standard one.
     """
@@ -1515,7 +1515,7 @@ def test_system_prompt_only_adds_blank_user_message():
     """
     Test that the system prompt only adds a blank user message when a system message is passed in.
 
-    Relevant Issue - https://github.com/BerriAI/litellm/issues/13769
+
     """
     SYSTEM_INSTRUCTION = "System instructions for the model"
     data = _transform_request_body(

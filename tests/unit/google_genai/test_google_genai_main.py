@@ -69,7 +69,7 @@ NATIVE_TOP_LEVEL_FIELD_CASES = [
 @pytest.mark.parametrize("field_name, field_value", NATIVE_TOP_LEVEL_FIELD_CASES)
 def test_native_top_level_field_forwarded_to_request_body(field_name, field_value):
     """
-    Regression for https://github.com/BerriAI/litellm/issues/12671
+    Regression test.
 
     Google's native generateContent body carries fields like safetySettings at the
     top level (siblings of generationConfig). The proxy spreads them as loose kwargs

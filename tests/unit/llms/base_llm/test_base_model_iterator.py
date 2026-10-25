@@ -225,7 +225,7 @@ async def test_pydantic_basemodel_chunk_passes_through_async():
 
 @pytest.mark.asyncio
 async def test_aclose_closes_attached_http_response():
-    """Regression for BerriAI/litellm#30244: CustomStreamWrapper.aclose() can
+    """Regression for upstream #30244: CustomStreamWrapper.aclose() can
     only release the upstream provider connection if the iterator exposes
     aclose() and it reaches the underlying HTTP response. Without this, a
     client disconnect leaves backends like vLLM generating into a dead pipe."""

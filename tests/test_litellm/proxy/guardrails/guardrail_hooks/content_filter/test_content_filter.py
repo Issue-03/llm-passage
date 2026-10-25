@@ -1300,7 +1300,7 @@ class TestContentFilterGuardrail:
         Test that ALL different blocked keywords are masked, not just the first one.
 
         Regression test for GitHub issue #17517:
-        https://github.com/BerriAI/litellm/issues/17517
+
 
         Before fix:
             Input: "Keyword01 Keyword01 Keyword02"
@@ -1416,7 +1416,7 @@ class TestContentFilterGuardrail:
         Test that ALL matches of a regex pattern are masked, not just the first one.
 
         Regression test for GitHub issue #17687:
-        https://github.com/BerriAI/litellm/issues/17687
+
 
         Before fix:
             Regex: Key\\d+
@@ -2172,7 +2172,7 @@ class TestContentFilterGuardrail:
         by the content filter guardrail.
 
         Regression test for GitHub issue #20441:
-        https://github.com/BerriAI/litellm/issues/20441
+
 
         LLM message content is not rendered as HTML, so HTML tags should be
         treated as plain text and should pass through without being blocked.

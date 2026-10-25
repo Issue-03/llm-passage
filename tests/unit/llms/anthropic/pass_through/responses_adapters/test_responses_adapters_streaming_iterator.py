@@ -193,7 +193,7 @@ _ENCRYPTED_REASONING = "gAAAAABp_encrypted_reasoning_bytes_only_openai_can_read"
 
 
 class TestEncryptedReasoningIsStreamedForReplay:
-    """Regression for https://github.com/BerriAI/litellm/issues/40288.
+    """Regression test.
 
     The client echoes a thinking block's signature (or a redacted block's data) back on the
     next turn, so the item's ``encrypted_content`` has to reach it through one of those.
@@ -254,7 +254,7 @@ class TestEncryptedReasoningIsStreamedForReplay:
 
 
 class TestToolUseBlockClosedExactlyOnce:
-    """Regression for https://github.com/BerriAI/litellm/issues/37273.
+    """Regression test.
 
     With ``custom_llm_provider: openai`` + ``use_chat_completions_api: true``,
     ``/v1/messages`` streams through ``LiteLLMCompletionStreamingIterator``,

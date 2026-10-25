@@ -1365,7 +1365,7 @@ def test_get_config_callback_env_secrets_redacted_for_non_admin(mock_env_vars, m
 
 def test_get_config_returns_email_settings(monkeypatch):
     """
-    Regression for https://github.com/BerriAI/litellm/issues/19221
+    Regression test.
 
     proxy_config.get_config() already returns environment_variables decrypted
     (the DB-overlay path decrypts them, and YAML values are plaintext). The

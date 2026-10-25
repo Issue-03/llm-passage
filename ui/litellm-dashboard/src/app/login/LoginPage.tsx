@@ -241,13 +241,6 @@ function LoginPageContent() {
                       Password is your set EmbRouter
                       <code className="bg-muted px-1 py-0.5 rounded-sm text-xs">MASTER_KEY</code>.
                     </p>
-                    <p className="mt-2 text-sm">
-                      Need to set UI credentials or SSO?{" "}
-                      <a href="https://docs.litellm.ai/docs/proxy/ui" target="_blank" rel="noopener noreferrer">
-                        Check the documentation
-                      </a>
-                      .
-                    </p>
                   </AlertDescription>
                 </Alert>
               )}

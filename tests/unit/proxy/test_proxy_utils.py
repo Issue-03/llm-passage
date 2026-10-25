@@ -615,7 +615,7 @@ def test_update_internal_user_params():
         "models": ["gpt-3.5-turbo"],
     }
 
-    data = NewUserRequest(user_role="internal_user", user_email="krrish3@berri.ai")
+    data = NewUserRequest(user_role="internal_user", user_email="user@example.com")
     data_json = data.model_dump()
     updated_data_json = _update_internal_new_user_params(data_json, data)
     assert updated_data_json["models"] == litellm.default_internal_user_params["models"]
@@ -641,7 +641,7 @@ def test_update_internal_new_user_params_with_no_initial_role_set():
         "models": ["gpt-3.5-turbo"],
     }
 
-    data = NewUserRequest(user_email="krrish3@berri.ai")
+    data = NewUserRequest(user_email="user@example.com")
     data_json = data.model_dump()
     updated_data_json = _update_internal_new_user_params(data_json, data)
     assert updated_data_json["models"] == litellm.default_internal_user_params["models"]
@@ -669,11 +669,11 @@ def test_update_internal_new_user_params_with_user_defined_values():
     }
 
     data = NewUserRequest(
-        user_email="krrish3@berri.ai", max_budget=1000, budget_duration="1mo"
+        user_email="user@example.com", max_budget=1000, budget_duration="1mo"
     )
     data_json = data.model_dump()
     updated_data_json = _update_internal_new_user_params(data_json, data)
-    assert updated_data_json["user_email"] == "krrish3@berri.ai"
+    assert updated_data_json["user_email"] == "user@example.com"
     assert updated_data_json["user_role"] == "proxy_admin"
     assert updated_data_json["max_budget"] == 1000
     assert updated_data_json["budget_duration"] == "1mo"
@@ -1269,7 +1269,7 @@ def test_proxy_config_state_post_init_callback_call(monkeypatch):
     """
     Ensures team_id is still in config, after callback is called
 
-    Addresses issue: https://github.com/BerriAI/litellm/issues/6787
+    Addresses
 
     Where team_id was being popped from config, after callback was called
 

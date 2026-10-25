@@ -1618,8 +1618,8 @@ class TestOCIGetCompleteUrl:
 class TestOCIImageUrlTransformation:
     """Tests for OCI image_url format handling in multimodal messages.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/18270
-    Fixes: https://github.com/BerriAI/litellm/issues/19589
+
+
     """
 
     def test_image_url_as_string(self):
@@ -1676,7 +1676,7 @@ class TestOCIImageUrlTransformation:
     def test_image_url_serializes_as_object(self):
         """Test that imageUrl serializes as {"url": "..."} for OCI API.
 
-        Fixes: https://github.com/BerriAI/litellm/issues/19589
+
         OCI expects imageUrl to be an object with a 'url' property, not a plain string.
         """
         from litellm.llms.oci.chat.transformation import (

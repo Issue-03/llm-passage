@@ -2,7 +2,7 @@
 Tests that the cost-tracking call sites tolerate ``server_tool_use`` being
 either a ``dict`` or a ``ServerToolUse`` pydantic instance.
 
-See https://github.com/BerriAI/litellm/issues/26153.
+
 """
 
 

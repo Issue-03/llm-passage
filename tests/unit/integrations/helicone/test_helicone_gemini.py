@@ -1,6 +1,6 @@
 """
 Test HeliconeLogger Gemini/Vertex AI support.
-Fixes: https://github.com/BerriAI/litellm/issues/19093
+
 """
 
 

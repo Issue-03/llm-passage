@@ -1129,7 +1129,7 @@ huggingface_models: Final[set] = set(
         "meta-llama/Llama-2-70b",
         "meta-llama/Llama-2-70b-chat",
     ]
-)  # these have been tested on extensively. But by default all text2text-generation and text-generation models are supported by liteLLM. - https://docs.litellm.ai/docs/providers
+)  # these have been tested on extensively. But by default all text2text-generation and text-generation models are supported by liteLLM.
 empower_models: Final = set(
     [
         "empower/empower-functions",
@@ -2156,7 +2156,7 @@ PTU_LAPSED_ALERT_LIMIT: Final[int] = 10
 SPEND_CAPTURE_RATE_CHECK_JOB_ID: Final[str] = "spend_capture_rate_check_job"
 SPEND_CAPTURE_RATE_CHECK_LOCK_TTL_SECONDS: Final[int] = 900
 SPEND_CAPTURE_RATE_MAX_RANGE_DAYS: Final[int] = 180
-SPEND_CAPTURE_RATE_DOCS_URL: Final[str] = "https://docs.litellm.ai/docs/proxy/spend_capture_rate"
+SPEND_CAPTURE_RATE_DOCS_URL: Final[str] = ""
 OPENAI_ORGANIZATION_COSTS_URL: Final[str] = "https://api.openai.com/v1/organization/costs"
 # Buckets per page the OpenAI costs endpoint allows (1 to 180, default 7), 2026-09-24
 OPENAI_ORGANIZATION_COSTS_PAGE_LIMIT: Final[int] = 180

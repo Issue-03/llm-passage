@@ -205,6 +205,6 @@ curl -L -X GET 'https://app.phoenix.arize.com/s/krrishdholakia/v1/prompt_version
 ## Support
 
 For issues or questions:
-- LiteLLM Issues: https://github.com/BerriAI/litellm/issues
+- LiteLLM
 - Arize Phoenix Docs: https://docs.arize.com/phoenix
 

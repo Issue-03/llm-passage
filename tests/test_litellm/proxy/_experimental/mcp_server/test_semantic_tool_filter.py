@@ -1538,7 +1538,7 @@ class TestGetToolsByNames:
 
     def test_does_not_collide_with_local_function_on_unprefixed_canonical(self):
         """
-        Guard against the collision @krrish-berri-2 flagged on #26117:
+        Guard against the collision a reviewer flagged:
         if the canonical name from the router is not server-prefixed
         (i.e. does not contain ``MCP_TOOL_PREFIX_SEPARATOR``), suffix
         matching must not kick in. Otherwise an unrelated local user

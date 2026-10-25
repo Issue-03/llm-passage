@@ -454,7 +454,7 @@ class TestCheckResponsesCost:
         self, check_responses_cost_instance, mock_prisma_client, mock_llm_router
     ):
         """
-        Regression test for https://github.com/BerriAI/litellm/issues/35131
+
 
         A background response created against a deployment whose credentials only
         exist in the config (e.g. Azure api_base/api_key) must be fetched through

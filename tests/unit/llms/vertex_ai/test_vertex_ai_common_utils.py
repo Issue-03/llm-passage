@@ -771,7 +771,7 @@ def test_convert_schema_types_type_array_conversion():
     This test verifies the fix for the issue where type arrays like ["string", "number"]
     would raise an exception in Vertex AI schema validation.
 
-    Relevant issue: https://github.com/BerriAI/litellm/issues/14091
+
     """
     from litellm.llms.vertex_ai.common_utils import _convert_schema_types
 

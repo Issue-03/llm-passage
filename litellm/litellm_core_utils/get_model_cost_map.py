@@ -1,5 +1,5 @@
 """
-Pulls the cost + context window + provider route for known models from https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json
+Pulls the cost + context window + provider route for known models
 
 This can be disabled by setting the LITELLM_LOCAL_MODEL_COST_MAP environment variable to True.
 The ``lite`` and ``litellm-proxy`` CLI entry points also use the bundled map without fetching.
@@ -377,7 +377,7 @@ async def refetch_model_cost_map(
     on failure it returns ``ModelCostMapReloadUnavailable`` so callers keep the
     map they already have.
     """
-    if os.getenv("LITELLM_LOCAL_MODEL_COST_MAP", "").lower() == "true":
+    if not url or os.getenv("LITELLM_LOCAL_MODEL_COST_MAP", "").lower() == "true":
         _cost_map_source_info.loaded_at = datetime.now(timezone.utc)
         _cost_map_source_info.source = "local"
         _cost_map_source_info.url = None
@@ -640,7 +640,7 @@ def get_model_cost_map(
     _cost_map_source_info.loaded_at = datetime.now(timezone.utc)
     # Note: can't use get_secret_bool here — this runs during litellm.__init__
     # before litellm._key_management_settings is set.
-    if os.getenv("LITELLM_LOCAL_MODEL_COST_MAP", "").lower() == "true" or _is_cli_process():
+    if not url or os.getenv("LITELLM_LOCAL_MODEL_COST_MAP", "").lower() == "true" or _is_cli_process():
         _cost_map_source_info.source = "local"
         _cost_map_source_info.url = None
         _cost_map_source_info.is_env_forced = True

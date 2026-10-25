@@ -211,7 +211,7 @@ def test_gpt5_verbosity_parameter(config: OpenAIConfig):
 def test_gpt5_1_reasoning_effort_none(config: OpenAIConfig):
     """Test that GPT-5.1 supports reasoning_effort='none' parameter.
 
-    Related issue: https://github.com/BerriAI/litellm/issues/16633
+
     GPT-5.1 introduced 'none' as the new default reasoning effort setting
     for faster, lower-latency responses.
     """
@@ -850,7 +850,7 @@ def test_gpt5_temperature_still_restricted(config: OpenAIConfig):
 def test_gpt5_2_chat_temperature_restricted(config: OpenAIConfig):
     """Test that gpt-5.2-chat only supports temperature=1, like base gpt-5.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/21911
+
     """
     # gpt-5.2-chat should reject non-1 temperature when drop_params=False
     for model in ["gpt-5.2-chat", "gpt-5.2-chat-latest"]:

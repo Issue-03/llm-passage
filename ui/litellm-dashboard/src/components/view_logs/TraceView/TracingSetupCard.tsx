@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, Check, Copy, Loader2 } from "lucide-react";
+import { Check, Copy, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 import { cn } from "@/lib/cva.config";
@@ -17,7 +17,6 @@ import pydanticAiLogo from "../../../../public/assets/logos/pydantic-ai-color.sv
 import { getProxyBaseUrl } from "../../networking";
 
 const COPIED_RESET_MS = 1500;
-const DOCS_URL = "https://docs.litellm.ai";
 const OTEL_BASE_PACKAGES = "opentelemetry-distro opentelemetry-exporter-otlp-proto-http";
 const RUN_SNIPPET = "opentelemetry-instrument python my_agent.py";
 
@@ -329,14 +328,6 @@ export function TracingSetupCard({ detail, connected = false }: { detail: string
       <div className="w-full rounded-lg border border-border bg-card p-6">
         <div className="flex flex-wrap items-center gap-3">
           <SetupStatus detail={detail} connected={connected} />
-          <a
-            href={DOCS_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="ml-auto inline-flex items-center gap-1 text-[13px] text-foreground hover:underline"
-          >
-            View docs <ArrowUpRight className="size-3.5" />
-          </a>
         </div>
 
         <WhatYoullSee />

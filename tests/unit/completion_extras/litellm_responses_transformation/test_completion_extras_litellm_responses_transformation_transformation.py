@@ -2581,7 +2581,7 @@ def test_convert_chat_completion_file_type_to_input_file():
     Test that Chat Completion content with type 'file' is correctly mapped
     to Responses API 'input_file' format, not stringified as 'input_text'.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/23588
+
     """
     from litellm.completion_extras.litellm_responses_transformation.transformation import (
         LiteLLMResponsesTransformationHandler,
@@ -3842,7 +3842,7 @@ def test_response_incomplete_stream_event_without_details_defaults_to_length():
 
 
 def test_assistant_message_with_tool_calls_keeps_its_content():
-    """Regression for https://github.com/BerriAI/litellm/issues/24985.
+    """Regression test.
 
     An assistant turn that both answered and called a tool used to lose its whole message:
     the branch handling tool_calls emitted the calls and dropped the text.

@@ -992,7 +992,7 @@ async def test_mcp_tool_execution_events_creation():
         {
             "id": "call_def456",
             "name": "get_repo_info",
-            "arguments": '{"repo_name": "BerriAI/litellm"}',
+            "arguments": '{"repo_name": "example-org/example-repo"}',
             "type": "function_call",
         },
     ]

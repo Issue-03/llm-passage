@@ -1,9 +1,8 @@
-import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { toast } from "@/lib/toast";
 import { testSearchToolConnection } from "@/components/networking";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { UiLoadingSpinner } from "@/components/ui/ui-loading-spinner";
 
 interface SearchConnectionTestProps {
@@ -167,18 +166,6 @@ const SearchConnectionTest: React.FC<SearchConnectionTestProps> = ({ litellmPara
           </div>
         </div>
       )}
-      <Separator className="mt-6 mb-4" />
-      <div className="flex items-center justify-between">
-        <a
-          href="https://docs.litellm.ai/docs/search"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-        >
-          <Info className="size-4" />
-          View Search Documentation
-        </a>
-      </div>
     </div>
   );
 };

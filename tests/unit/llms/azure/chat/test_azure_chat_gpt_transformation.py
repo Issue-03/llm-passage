@@ -180,7 +180,7 @@ def test_azure_max_tokens_rename_covers_gpt_5_chat_family(model: str, emitted_ke
 
 @pytest.mark.parametrize("model", ["gpt-5-chat", "gpt-5-chat-latest"])
 def test_azure_gpt_5_chat_stays_off_the_reasoning_path(model: str) -> None:
-    """https://github.com/BerriAI/litellm/issues/13781: gpt-5-chat* is a regular chat model."""
+    """ gpt-5-chat* is a regular chat model."""
     mapped: Final = _MAPPED_PARAMS.validate_python(
         get_optional_params(
             model=model,

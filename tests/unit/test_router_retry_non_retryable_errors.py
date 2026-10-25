@@ -7,7 +7,7 @@ Verifies that:
 2. original_exception is updated to the latest error, not stuck on the first.
 3. Retryable errors (e.g., 429 RateLimitError) still retry normally.
 
-Regression tests for https://github.com/BerriAI/litellm/issues/21343
+
 """
 
 import asyncio

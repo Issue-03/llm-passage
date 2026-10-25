@@ -79,7 +79,7 @@ def test_cache_init_creates_cluster_cache_from_env_var(
     """
     Test that Cache() creates RedisClusterCache when REDIS_CLUSTER_NODES env var is set.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/22748
+
     """
     from litellm.caching.caching import Cache
 
@@ -161,7 +161,7 @@ def test_router_create_redis_cache_cluster_detection(
     either startup_nodes is in config or REDIS_CLUSTER_NODES env var is set.
     Also verifies that explicit startup_nodes take precedence over env var.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/22748
+
     """
     from litellm import Router
 

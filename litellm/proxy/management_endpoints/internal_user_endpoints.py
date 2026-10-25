@@ -492,7 +492,7 @@ async def new_user(
     - teams: Optional[list] - specify a list of team id's a user belongs to.
     - user_email: Optional[str] - Specify a user email.
     - send_invite_email: Optional[bool] - Specify if an invite email should be sent.
-    - user_role: Optional[str] - Specify a user role - "proxy_admin", "proxy_admin_viewer", "internal_user", "internal_user_viewer", "team", "customer". Info about each role here: `https://github.com/BerriAI/litellm/litellm/proxy/_types.py#L20`
+    - user_role: Optional[str] - Specify a user role - "proxy_admin", "proxy_admin_viewer", "internal_user", "internal_user_viewer", "team", "customer". Info about each role here: ``
     - max_budget: Optional[float] - Specify max budget for a given user.
     - budget_duration: Optional[str] - Budget is reset at the end of specified duration. If not set, budget is never reset. You can set duration as seconds ("30s"), minutes ("30m"), hours ("30h"), days ("30d"), months ("1mo").
     - models: Optional[list] - Model_name's a user is allowed to call. (if empty, key is allowed to call all models). Set to ['no-default-models'] to block all model access. Restricting user to only team-based model access.
@@ -501,19 +501,19 @@ async def new_user(
     - auto_create_key: bool - Default=True. Flag used for returning a key as part of the /user/new response
     - aliases: Optional[dict] - Model aliases for the user - [Docs](https://litellm.vercel.app/docs/proxy/virtual_keys#model-aliases)
     - config: Optional[dict] - [DEPRECATED PARAM] User-specific config.
-    - allowed_cache_controls: Optional[list] - List of allowed cache control values. Example - ["no-cache", "no-store"]. See all values - https://docs.litellm.ai/docs/proxy/caching#turn-on--off-caching-per-request-
+    - allowed_cache_controls: Optional[list] - List of allowed cache control values. Example - ["no-cache", "no-store"].
     - blocked: Optional[bool] - [Not Implemented Yet] Whether the user is blocked.
     - guardrails: Optional[List[str]] - [Not Implemented Yet] List of active guardrails for the user
     - policies: Optional[List[str]] - List of policy names to apply to the user. Policies define guardrails, conditions, and inheritance rules.
     - permissions: Optional[dict] - [Not Implemented Yet] User-specific permissions, eg. turning off pii masking.
-    - metadata: Optional[dict] - Metadata for user, store information for user. Example metadata = {"team": "core-infra", "app": "app2", "email": "ishaan@berri.ai" }
+    - metadata: Optional[dict] - Metadata for user, store information for user. Example metadata = {"team": "core-infra", "app": "app2", "email": "user@example.com" }
     - max_parallel_requests: Optional[int] - Rate limit a user based on the number of parallel requests. Raises 429 error, if user's parallel requests > x.
-    - model_max_budget: Optional[dict] - Model-specific max budget for user. [Docs](https://docs.litellm.ai/docs/proxy/users#add-model-specific-budgets-to-keys)
+    - model_max_budget: Optional[dict] - Model-specific max budget for user.
     - budget_fallbacks: Optional[Dict[str, List[str]]] - Per-model fallback chain tried in order when that model's own `model_max_budget` is exceeded, e.g. {"gpt-4o": ["gpt-4o-mini"]}.
-    - model_rpm_limit: Optional[float] - Model-specific rpm limit for user. [Docs](https://docs.litellm.ai/docs/proxy/users#add-model-specific-limits-to-keys)
+    - model_rpm_limit: Optional[float] - Model-specific rpm limit for user.
     - mcp_rpm_limit: Optional[dict] - Per-MCP-server rpm limit, keyed by MCP server name {"github": 100, "slack": 200}. Enforced for keys and teams only; values set on a user are stored but not enforced per user.
     - tag_rpm_limit: Optional[dict] - Per-request-tag rpm limit, keyed by request tag {"cell-1": 1000, "cell-2": 500}. Enforced for keys only; values set on a user are stored but not enforced per user.
-    - model_tpm_limit: Optional[float] - Model-specific tpm limit for user. [Docs](https://docs.litellm.ai/docs/proxy/users#add-model-specific-limits-to-keys)
+    - model_tpm_limit: Optional[float] - Model-specific tpm limit for user.
     - spend: Optional[float] - Amount spent by user. Default is 0. Will be updated by proxy whenever user is used. You can set duration as seconds ("30s"), minutes ("30m"), hours ("30h"), days ("30d"), months ("1mo").
     - agent_id: Optional[str] - The agent id associated with the user.
     - team_id: Optional[str] - [DEPRECATED PARAM] The team id of the user. Default is None.
@@ -565,7 +565,7 @@ async def new_user(
         if billable_users and _license_check.is_over_limit(total_users=billable_users):
             raise HTTPException(
                 status_code=403,
-                detail="License is over limit. Please contact support@berri.ai to upgrade your license.",
+                detail="License is over limit.",
             )
 
         # Only proxy admins can create administrative users
@@ -941,7 +941,7 @@ async def user_info(
 
     Example request
     ```
-    curl -X GET 'http://localhost:4000/user/info?user_id=krrish7%40berri.ai' \
+    curl -X GET 'http://localhost:4000/user/info?user_id=user%40example.com' \
     --header 'Authorization: Bearer sk-1234'
     ```
     """
@@ -953,7 +953,7 @@ async def user_info(
 
         if prisma_client is None:
             raise Exception(
-                "Database not connected. Connect a database to your proxy - https://docs.litellm.ai/docs/simple_proxy#managing-auth---virtual-keys"
+                "Database not connected. Connect a database to your proxy"
             )
         if user_id is None and _user_has_admin_view(user_api_key_dict):
             return await _get_user_info_for_proxy_admin(user_api_key_dict=user_api_key_dict)
@@ -1192,7 +1192,7 @@ async def _get_user_info_for_proxy_admin(user_api_key_dict: UserAPIKeyAuth):
     """
     if prisma_client is None:
         raise Exception(
-            "Database not connected. Connect a database to your proxy - https://docs.litellm.ai/docs/simple_proxy#managing-auth---virtual-keys"
+            "Database not connected. Connect a database to your proxy"
         )
 
     results: Final = await _fetch_admin_teams_and_keys_rows(prisma_client, sql_query)
@@ -1683,7 +1683,7 @@ async def user_update(
         - user_alias: Optional[str] - A descriptive name for you to know who this user id refers to.
         - teams: Optional[list] - specify a list of team id's a user belongs to.
         - send_invite_email: Optional[bool] - Specify if an invite email should be sent.
-        - user_role: Optional[str] - Specify a user role - "proxy_admin", "proxy_admin_viewer", "internal_user", "internal_user_viewer", "team", "customer". Info about each role here: `https://github.com/BerriAI/litellm/litellm/proxy/_types.py#L20`
+        - user_role: Optional[str] - Specify a user role - "proxy_admin", "proxy_admin_viewer", "internal_user", "internal_user_viewer", "team", "customer". Info about each role here: ``
         - max_budget: Optional[float] - Specify max budget for a given user.
         - budget_duration: Optional[str] - Budget is reset at the end of specified duration. If not set, budget is never reset. You can set duration as seconds ("30s"), minutes ("30m"), hours ("30h"), days ("30d"), months ("1mo").
         - models: Optional[list] - Model_name's a user is allowed to call. (if empty, key is allowed to call all models)
@@ -1692,19 +1692,19 @@ async def user_update(
         - auto_create_key: bool - Default=True. Flag used for returning a key as part of the /user/new response
         - aliases: Optional[dict] - Model aliases for the user - [Docs](https://litellm.vercel.app/docs/proxy/virtual_keys#model-aliases)
         - config: Optional[dict] - [DEPRECATED PARAM] User-specific config.
-        - allowed_cache_controls: Optional[list] - List of allowed cache control values. Example - ["no-cache", "no-store"]. See all values - https://docs.litellm.ai/docs/proxy/caching#turn-on--off-caching-per-request-
+        - allowed_cache_controls: Optional[list] - List of allowed cache control values. Example - ["no-cache", "no-store"].
         - blocked: Optional[bool] - [Not Implemented Yet] Whether the user is blocked.
         - guardrails: Optional[List[str]] - [Not Implemented Yet] List of active guardrails for the user
         - policies: Optional[List[str]] - List of policy names to apply to the user. Policies define guardrails, conditions, and inheritance rules.
         - permissions: Optional[dict] - [Not Implemented Yet] User-specific permissions, eg. turning off pii masking.
-        - metadata: Optional[dict] - Metadata for user, store information for user. Example metadata = {"team": "core-infra", "app": "app2", "email": "ishaan@berri.ai" }
+        - metadata: Optional[dict] - Metadata for user, store information for user. Example metadata = {"team": "core-infra", "app": "app2", "email": "user@example.com" }
         - max_parallel_requests: Optional[int] - Rate limit a user based on the number of parallel requests. Raises 429 error, if user's parallel requests > x.
-        - model_max_budget: Optional[dict] - Model-specific max budget for user. [Docs](https://docs.litellm.ai/docs/proxy/users#add-model-specific-budgets-to-keys)
+        - model_max_budget: Optional[dict] - Model-specific max budget for user.
         - budget_fallbacks: Optional[Dict[str, List[str]]] - Per-model fallback chain tried in order when that model's own `model_max_budget` is exceeded, e.g. {"gpt-4o": ["gpt-4o-mini"]}.
-        - model_rpm_limit: Optional[float] - Model-specific rpm limit for user. [Docs](https://docs.litellm.ai/docs/proxy/users#add-model-specific-limits-to-keys)
+        - model_rpm_limit: Optional[float] - Model-specific rpm limit for user.
         - mcp_rpm_limit: Optional[dict] - Per-MCP-server rpm limit, keyed by MCP server name {"github": 100, "slack": 200}. Enforced for keys and teams only; values set on a user are stored but not enforced per user.
         - tag_rpm_limit: Optional[dict] - Per-request-tag rpm limit, keyed by request tag {"cell-1": 1000, "cell-2": 500}. Enforced for keys only; values set on a user are stored but not enforced per user.
-        - model_tpm_limit: Optional[float] - Model-specific tpm limit for user. [Docs](https://docs.litellm.ai/docs/proxy/users#add-model-specific-limits-to-keys)
+        - model_tpm_limit: Optional[float] - Model-specific tpm limit for user.
         - spend: Optional[float] - Amount spent by user. Default is 0. Will be updated by proxy whenever user is used. You can set duration as seconds ("30s"), minutes ("30m"), hours ("30h"), days ("30d"), months ("1mo").
         - agent_id: Optional[str] - The agent id associated with the user.
         - team_id: Optional[str] - [DEPRECATED PARAM] The team id of the user. Default is None.

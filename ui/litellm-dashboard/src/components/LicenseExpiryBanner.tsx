@@ -9,7 +9,7 @@ import { useLicenseInfo } from "@/app/(dashboard)/hooks/license/useLicenseInfo";
 import { formatExpiryDate, getDaysUntilExpiration, getLicenseExpiryTier } from "@/utils/licenseUtils";
 
 const DISMISS_KEY_PREFIX = "litellm:licenseExpiryBannerDismissed:";
-const SALES_EMAIL = "sales@berri.ai";
+const SALES_EMAIL = "user@example.com";
 
 const salesLink = <a href={`mailto:${SALES_EMAIL}`}>{SALES_EMAIL}</a>;
 

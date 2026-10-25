@@ -596,7 +596,7 @@ class TestOverBudgetRequestThroughModelGroupAlias:
     `user_api_key_auth._should_skip_budget_checks()` derives the exemption from the requested
     model name and `common_checks()` enforces the budgets with it, so a break anywhere between
     alias resolution and enforcement shows up here. See
-    https://github.com/BerriAI/litellm/issues/35369.
+
     """
 
     ROUTE = "/v1/chat/completions"

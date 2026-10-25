@@ -800,7 +800,7 @@ async def bulk_create_users(
                 type=f"{PROBLEM_TYPE_BASE}license-limit-exceeded",
                 title="License limit exceeded",
                 status=403,
-                detail="License is over limit. Please contact support@berri.ai to upgrade your license.",
+                detail="License is over limit.",
             )
         )
 

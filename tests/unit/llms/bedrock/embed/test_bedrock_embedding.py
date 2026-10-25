@@ -413,7 +413,7 @@ def test_bedrock_embedding_header_forwarding(model, embed_response):
     This test verifies the fix for the issue where headers configured via
     forward_client_headers_to_llm_api were not being passed to Bedrock embedding provider.
 
-    Relevant Issue: https://github.com/BerriAI/litellm/pull/16042
+
     """
     client = HTTPHandler()
     test_api_key = "test-bearer-token-12345"

@@ -338,12 +338,7 @@ const VectorStoreForm: React.FC<VectorStoreFormProps> = ({
                   <AlertDescription>
                     <p>EmbRouter provides a server to connect to PG Vector. To use this provider:</p>
                     <ol style={{ marginLeft: "16px", marginTop: "8px", listStyleType: "decimal" }}>
-                      <li>
-                        Deploy the litellm-pgvector server from:{" "}
-                        <a href="https://github.com/BerriAI/litellm-pgvector" target="_blank" rel="noopener noreferrer">
-                          https://github.com/BerriAI/litellm-pgvector
-                        </a>
-                      </li>
+                      <li>Deploy a pgvector API server</li>
                       <li>Configure your PostgreSQL database with pgvector extension</li>
                       <li>Start the server and note the API base URL and API key</li>
                       <li>Enter those details in the fields below</li>

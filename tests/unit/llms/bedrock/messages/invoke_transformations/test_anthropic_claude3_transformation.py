@@ -519,7 +519,7 @@ def test_normalize_custom_field_on_tools():
     Bedrock does not accept a `custom` object on a tool and returns
     "Extra inputs are not permitted".
 
-    Ref: https://github.com/BerriAI/litellm/issues/22847
+
     """
 
     # Case 1: tool with `custom` field should have it removed
@@ -927,7 +927,7 @@ def test_bedrock_messages_strips_output_config():
     Ensure output_config is stripped from the request for models that do not
     support it.
 
-    Regression test for: https://github.com/BerriAI/litellm/issues/22797
+
     """
     from unittest.mock import patch
 
@@ -1550,7 +1550,7 @@ def test_bedrock_messages_preserves_compact_context_management_and_adds_beta():
          the right beta).
       2. Auto-inject ``compact-2026-01-12`` into ``anthropic_beta``.
 
-    Ref: https://github.com/BerriAI/litellm/issues/27532
+
     """
     from litellm.types.router import GenericLiteLLMParams
 
@@ -3119,7 +3119,6 @@ def test_bedrock_invoke_messages_rejects_server_web_search_tool(tool_type: str):
             litellm_params=GenericLiteLLMParams(),
             headers={},
         )
-    assert "https://docs.litellm.ai/docs/integrations/websearch_interception" in str(exc_info.value)
     assert "us.anthropic.claude-haiku-4-5-20251001-v1:0" in str(exc_info.value)
 
 

@@ -1,6 +1,6 @@
 """Cache-write pricing for OpenAI models, on both the chat and Responses paths.
 
-Regression guard for https://github.com/BerriAI/litellm/issues/33772: OpenAI
+Regression guard for OpenAI
 reports cache-write tokens under ``prompt_tokens_details.cache_write_tokens``
 (chat) / ``input_tokens_details.cache_write_tokens`` (responses), where
 Anthropic reports ``cache_creation_tokens``. The cost path read only the

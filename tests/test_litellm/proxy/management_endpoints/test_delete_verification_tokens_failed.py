@@ -1,7 +1,7 @@
 """
 Tests for the `failed_tokens` field returned by delete_verification_tokens().
 
-Related PR: https://github.com/BerriAI/litellm/pull/12577
+Related
 
 Verifies that delete_verification_tokens() includes a `failed_tokens` key in
 its result dict in all scenarios, populated with any token hashes that could

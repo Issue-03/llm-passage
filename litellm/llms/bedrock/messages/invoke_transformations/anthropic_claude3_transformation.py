@@ -75,7 +75,6 @@ class AmazonAnthropicClaudeMessagesConfig(
 
     DEFAULT_BEDROCK_ANTHROPIC_API_VERSION = "bedrock-2023-05-31"
 
-    WEBSEARCH_INTERCEPTION_DOCS_URL = "https://docs.litellm.ai/docs/integrations/websearch_interception"
 
     @property
     def custom_llm_provider(self) -> str | None:
@@ -477,7 +476,6 @@ class AmazonAnthropicClaudeMessagesConfig(
         ``"context_management: Extra inputs are not permitted"`` 400.
 
         Refs:
-          * https://github.com/BerriAI/litellm/issues/27532
           * https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-anthropic-claude-messages-tool-use.md
         """
         cm: Final = anthropic_messages_request.get("context_management")
@@ -615,8 +613,7 @@ class AmazonAnthropicClaudeMessagesConfig(
                 f"Bedrock does not support Anthropic's server-side web search tool "
                 f"(tool type '{web_search_tool.get('type')}', model '{model}'). "
                 "To use web search with this model, enable LiteLLM's web search interception "
-                "so the proxy executes the search instead: "
-                f"{AmazonAnthropicClaudeMessagesConfig.WEBSEARCH_INTERCEPTION_DOCS_URL}. "
+                "so the proxy executes the search instead. "
                 "Alternatively, remove the web_search tool from the request."
             ),
             model=model,
@@ -706,7 +703,6 @@ class AmazonAnthropicClaudeMessagesConfig(
         # 5. Route structured-output params (`output_format` /
         # `output_config.format`) to native enforcement or the inline-schema
         # fallback, then strip `output_config` keys the model does not accept.
-        # Ref: https://github.com/BerriAI/litellm/issues/22797
         existing_output_config: Final = anthropic_messages_request.get("output_config")
         if isinstance(existing_output_config, dict):
             anthropic_messages_request["output_config"] = dict(existing_output_config)
@@ -724,7 +720,6 @@ class AmazonAnthropicClaudeMessagesConfig(
         )
 
         # 5b. Hoist `custom.defer_loading` then drop `custom` (Bedrock doesn't support it)
-        # Ref: https://github.com/BerriAI/litellm/issues/22847
         normalize_custom_field_on_tools(anthropic_messages_request)
         normalize_tool_input_schema_types_for_bedrock_invoke(anthropic_messages_request)
         ensure_bedrock_anthropic_messages_tool_names(anthropic_messages_request)

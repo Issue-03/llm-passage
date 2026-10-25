@@ -251,7 +251,7 @@ def test_vertex_ai_get_json_schema_preserves_refs_for_nested_pydantic():
     (which preserves $ref/$defs) instead of OpenAI's to_strict_json_schema()
     (which inlines all $ref, inflating nesting depth).
 
-    This is the root cause fix for https://github.com/BerriAI/litellm/issues/21014
+    Regression test.
     """
     from pydantic import Field
 
@@ -516,7 +516,7 @@ def test_vertex_ai_candidate_token_count_inclusive(
 def test_vertex_ai_grounded_usage_surfaces_tool_use_tokens():
     """
     Grounded Gemini requests (googleSearch) return toolUsePromptTokenCount as part of totalTokenCount.
-    Regression for https://github.com/BerriAI/litellm/issues/33530: it must be folded into
+    Regression for it must be folded into
     prompt_tokens (so prompt_tokens + completion_tokens == total_tokens) and surfaced on
     prompt_tokens_details.tool_use_tokens.
     """
@@ -606,7 +606,7 @@ def test_vertex_ai_maps_grounding_tool_use_tokens_excluded_from_prompt_tokens():
     separate per-request / per-query fee, with toolUsePromptTokenCount surfaced on
     prompt_tokens_details.tool_use_tokens but excluded from prompt_tokens. Before Maps detection
     existed, a Vertex AI Maps-only response folded the 120 tool-use tokens into prompt_tokens.
-    Regression for https://github.com/BerriAI/litellm/issues/35906
+    Regression test.
     """
     v = VertexGeminiConfig()
     completion_response = {
@@ -687,7 +687,7 @@ def test_vertex_ai_search_grounding_tool_use_tokens_excluded_from_prompt_tokens(
     (Google charges a separate per-request / per-query search fee), so toolUsePromptTokenCount
     must be surfaced on prompt_tokens_details.tool_use_tokens but excluded from prompt_tokens.
     See https://ai.google.dev/gemini-api/docs/pricing and
-    https://github.com/BerriAI/litellm/discussions/33198
+
     """
     v = VertexGeminiConfig()
     completion_response = {
@@ -1235,9 +1235,9 @@ def test_vertex_ai_map_tools():
 
 def test_vertex_ai_map_tool_with_anyof():
     """
-    Related issue: https://github.com/BerriAI/litellm/issues/11164
 
-    Ensure if anyof is present, only the anyof field and its contents are kept - otherwise VertexAI will throw an error - https://github.com/BerriAI/litellm/issues/11164
+
+    Ensure if anyof is present, only the anyof field and its contents are kept - otherwise VertexAI will throw an error
     """
     v = VertexGeminiConfig()
     optional_params = {}
@@ -2847,7 +2847,7 @@ def test_reasoning_effort_dict_format_gemini_3():
     The OpenAI Agents SDK passes reasoning_effort as {"effort": "high", "summary": "auto"}
     instead of just a string. This test verifies that we correctly extract the effort value.
 
-    Related issue: https://github.com/BerriAI/litellm/issues/19411
+
     """
     from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
@@ -3164,7 +3164,7 @@ def test_gemini_3_image_models_no_thinking_config():
     """
     Test that Gemini 3 image models do NOT receive automatic thinkingConfig.
 
-    Related issue: https://github.com/BerriAI/litellm/issues/17013
+
     gemini-3-pro-image-preview does not support thinking_level parameter
     and returns BadRequestError: "Thinking level is not supported for this model"
     """
@@ -3261,11 +3261,6 @@ def test_partial_json_chunk_after_first_chunk():
     Test that partial JSON chunks are handled correctly even AFTER the first chunk.
 
     This tests the fix for:
-    - https://github.com/BerriAI/litellm/issues/16562
-    - https://github.com/BerriAI/litellm/issues/16037
-    - https://github.com/BerriAI/litellm/issues/14747
-    - https://github.com/BerriAI/litellm/issues/10410
-    - https://github.com/BerriAI/litellm/issues/5650
 
     The bug was that accumulation mode only activated on the first chunk.
     If chunk 1 was valid and chunk 5 arrived partial, it would crash.
@@ -3323,7 +3318,7 @@ def test_partial_json_chunk_on_first_chunk():
 
 def test_accumulated_json_does_not_reparse_every_fragment():
     """
-    Regression test for https://github.com/BerriAI/litellm/issues/26181
+
 
     handle_accumulated_json_chunk used to call json.loads on the entire
     accumulated buffer after EVERY fragment. For a large response fragmented
@@ -3405,7 +3400,7 @@ def test_google_ai_studio_presence_penalty_supported():
     """
     Test that presence_penalty is supported for Google AI Studio Gemini.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/14753
+
     """
     config = GoogleAIStudioGeminiConfig()
     supported_params = config.get_supported_openai_params(model="gemini-2.0-flash")
@@ -3598,7 +3593,7 @@ def test_vertex_ai_mixed_search_and_function_tools_drops_search():
     This happens when deployment config has search tools (enterpriseWebSearch,
     urlContext) and user request adds function calling tools (e.g. via MCP).
 
-    Ref: https://github.com/BerriAI/litellm/issues/23337
+
     """
     v = VertexGeminiConfig()
     optional_params = {}
@@ -5005,7 +5000,7 @@ def test_vertex_ai_usage_metadata_video_tokens_with_caching():
 def test_vertex_ai_usage_metadata_with_document_tokens_in_prompt():
     """Test promptTokensDetails with DOCUMENT modality for PDF inputs.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/24375
+
 
     When a PDF is sent to Gemini, the API returns a DOCUMENT modality in
     promptTokensDetails. These tokens should be mapped to text_tokens since
@@ -5091,7 +5086,7 @@ def test_async_streaming_uses_custom_client():
     Test that user-specified async client is correctly passed to make_call
     for async streaming calls.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/17148
+
     """
     from functools import partial
 

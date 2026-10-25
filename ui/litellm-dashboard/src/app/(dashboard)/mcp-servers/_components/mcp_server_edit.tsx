@@ -1083,9 +1083,9 @@ const MCPServerEdit: React.FC<MCPServerEditProps> = ({
                         <TriangleAlert />
                         <AlertTitle>This server has no OAuth flow set</AlertTitle>
                         <AlertDescription>
-                          Choose Machine-to-Machine (M2M) or Interactive (PKCE) so EmbRouter authenticates it the way you
-                          intend, then save. Until it is set, EmbRouter falls back to interactive per-user auth and treats
-                          a machine-to-machine credential shape conservatively.
+                          Choose Machine-to-Machine (M2M) or Interactive (PKCE) so EmbRouter authenticates it the way
+                          you intend, then save. Until it is set, EmbRouter falls back to interactive per-user auth and
+                          treats a machine-to-machine credential shape conservatively.
                         </AlertDescription>
                       </Alert>
                     )}
@@ -1109,15 +1109,7 @@ const MCPServerEdit: React.FC<MCPServerEditProps> = ({
                 {!isStdioTransport && isAwsSigV4AuthType && (
                   <>
                     <p className="text-sm text-muted-foreground mb-2">
-                      For MCP servers hosted on AWS Bedrock AgentCore.{" "}
-                      <a
-                        href="https://docs.litellm.ai/docs/mcp_aws_sigv4"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-info hover:text-info/80"
-                      >
-                        View docs &rarr;
-                      </a>
+                      For MCP servers hosted on AWS Bedrock AgentCore.
                     </p>
                     <MountedFormField
                       label={

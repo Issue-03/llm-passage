@@ -1799,7 +1799,7 @@ def test_gemini_files_api_uri_without_format():
     MIME type via HTTP.  Instead it should pass the URI through as file_data
     and let the Gemini API resolve the type from its stored metadata.
 
-    Related issue: https://github.com/BerriAI/litellm/issues/24907
+
     """
     from litellm.llms.vertex_ai.gemini.transformation import _process_gemini_media
 
@@ -1821,7 +1821,7 @@ def test_gemini_files_api_uri_with_format():
     """
     Test that Gemini Files API URIs correctly forward an explicit format.
 
-    Related issue: https://github.com/BerriAI/litellm/issues/24907
+
     """
     from litellm.llms.vertex_ai.gemini.transformation import _process_gemini_media
 
@@ -2303,8 +2303,8 @@ def test_function_response_has_user_role():
     must be sent with role="user". Previously, LiteLLM omitted the role field
     entirely, causing 400 errors from the Gemini API.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/22003
-    Fixes: https://github.com/BerriAI/litellm/issues/20690
+
+
     """
     messages = [
         {"role": "user", "content": "What is the weather in Berlin?"},
@@ -2350,7 +2350,7 @@ def test_multi_turn_function_calling_roles():
     Simulates: user asks → model calls tool → tool responds → model answers → user asks again.
     Every content block must have an explicit role of "user" or "model".
 
-    Fixes: https://github.com/BerriAI/litellm/issues/22003
+
     """
     messages = [
         {"role": "user", "content": "What is the weather in Berlin?"},

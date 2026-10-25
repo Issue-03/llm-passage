@@ -208,7 +208,7 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         # ``streaming_end_of_stream_only`` is detect-only: it releases every
         # chunk to the client *before* moderating, so a block can only append a
         # trailing message -- the original content has already been delivered.
-        # ``streaming_buffer_until_moderated`` (litellm >= BerriAI/litellm#31389)
+        # ``streaming_buffer_until_moderated``
         # withholds all chunks until end-of-stream moderation passes, then
         # releases the original response (clean) or only the block message
         # (blocked). On older litellm this attribute is ignored and we fall

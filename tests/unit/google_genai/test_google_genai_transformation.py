@@ -565,7 +565,7 @@ def test_validate_environment_with_dict_api_key():
     is returned as {"x-goog-api-key": "sk-test"} and should be merged into
     headers instead of being set as a header value.
 
-    Regression test for: https://github.com/BerriAI/litellm/issues/xxxxx
+
     """
     config = GoogleGenAIConfig()
 

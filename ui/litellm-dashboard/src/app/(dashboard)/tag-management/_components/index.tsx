@@ -152,14 +152,7 @@ const TagManagement: React.FC<TagProps> = ({ accessToken, userID, userRole }) =>
 
           <div className="mb-4 text-sm">
             Click on a tag name to view and edit its details.
-            <p>
-              You can use tags to restrict the usage of certain LLMs based on tags passed in the request. Read more
-              about tag routing{" "}
-              <a href="https://docs.litellm.ai/docs/proxy/tag_routing" target="_blank" rel="noopener noreferrer">
-                here
-              </a>
-              .
-            </p>
+            <p>You can use tags to restrict the usage of certain LLMs based on tags passed in the request.</p>
           </div>
 
           <Button className="mb-4 self-start" onClick={() => setIsCreateModalVisible(true)}>

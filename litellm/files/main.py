@@ -195,7 +195,7 @@ def create_file(
                 response=httpx.Response(
                     status_code=400,
                     content="passthrough needs a vertex_ai batch",
-                    request=httpx.Request(method="create_file", url="https://github.com/BerriAI/litellm"),
+                    request=httpx.Request(method="create_file", url="http://localhost"),
                 ),
             )
 
@@ -287,7 +287,7 @@ def create_file(
                 response=httpx.Response(
                     status_code=400,
                     content="Unsupported provider",
-                    request=httpx.Request(method="create_file", url="https://github.com/BerriAI/litellm"),
+                    request=httpx.Request(method="create_file", url="http://localhost"),
                 ),
             )
         return response
@@ -453,7 +453,7 @@ def file_retrieve(
                         content="Unsupported provider",
                         request=httpx.Request(
                             method="create_thread",
-                            url="https://github.com/BerriAI/litellm",
+                            url="http://localhost",
                         ),
                     ),
                 )
@@ -630,7 +630,7 @@ def file_delete(
                         content="Unsupported provider",
                         request=httpx.Request(
                             method="create_thread",
-                            url="https://github.com/BerriAI/litellm",
+                            url="http://localhost",
                         ),
                     ),
                 )
@@ -794,7 +794,7 @@ def file_list(
                 response=httpx.Response(
                     status_code=400,
                     content="Unsupported provider",
-                    request=httpx.Request(method="file_list", url="https://github.com/BerriAI/litellm"),
+                    request=httpx.Request(method="file_list", url="http://localhost"),
                 ),
             )
         return response
@@ -1023,7 +1023,7 @@ def file_content(
                 response=httpx.Response(
                     status_code=400,
                     content="Unsupported provider",
-                    request=httpx.Request(method="create_thread", url="https://github.com/BerriAI/litellm"),
+                    request=httpx.Request(method="create_thread", url="http://localhost"),
                 ),
             )
         return response
@@ -1098,7 +1098,7 @@ def file_content_streaming(
                 response=httpx.Response(
                     status_code=400,
                     content="Unsupported provider",
-                    request=httpx.Request(method="file_content", url="https://github.com/BerriAI/litellm"),
+                    request=httpx.Request(method="file_content", url="http://localhost"),
                 ),
             )
         vertex_files_config: Final = ProviderConfigManager.get_provider_files_config(
@@ -1124,7 +1124,7 @@ def file_content_streaming(
             response=httpx.Response(
                 status_code=400,
                 content="Unsupported provider",
-                request=httpx.Request(method="create_thread", url="https://github.com/BerriAI/litellm"),
+                request=httpx.Request(method="create_thread", url="http://localhost"),
             ),
         )
 

@@ -12,4 +12,4 @@ For OpenAI-compatible embedding calls (including `openai/...` with a custom `api
 
 If none of those is set, or the winning value is the literal string `none`, the field is omitted from the upstream request entirely (LiteLLM also bypasses the OpenAI SDK's own base64 default), so OpenAI-compatible servers that reject `encoding_format` keep working.
 
-To pass provider-specific parameters, see [provider-specific params](https://docs.litellm.ai/docs/completion/provider_specific_params).
+To pass provider-specific parameters, see provider-specific params.

@@ -7,6 +7,13 @@ import pytest
 from litellm.proxy import proxy_server
 from litellm.proxy.bug_report_config import build_proxy_bug_report, build_proxy_environment_report, safe_config_lines
 
+
+@pytest.fixture(autouse=True)
+def _bug_report_issue_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bug report links are off unless an issue URL is configured; turn them on for these tests."""
+    monkeypatch.setenv("LITELLM_BUG_REPORT_ISSUE_URL", "https://issues.example.com/new")
+
+
 CUSTOMER_STRINGS = (
     "acme",
     "sk-live-secret",
@@ -109,6 +116,7 @@ def test_safe_config_lines_keep_only_flags_and_litellm_defined_values():
 def test_string_values_show_only_when_litellm_defines_them(
     config: Mapping[str, object], expected_lines: tuple[str, ...]
 ):
+
     assert safe_config_lines(config, {}) == expected_lines
 
 

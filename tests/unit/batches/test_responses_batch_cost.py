@@ -1,6 +1,6 @@
 """Token and spend reconciliation for /v1/responses batches.
 
-Regression guard for https://github.com/BerriAI/litellm/issues/35363: a batch
+Regression guard for a batch
 output line built by the Responses API reports ``input_tokens`` /
 ``output_tokens`` where a chat line reports ``prompt_tokens`` /
 ``completion_tokens``. The usage object was constructed straight from the raw

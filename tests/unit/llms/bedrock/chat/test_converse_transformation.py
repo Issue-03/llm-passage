@@ -4073,7 +4073,7 @@ def test_drop_thinking_param_when_thinking_blocks_missing():
     This prevents the Anthropic/Bedrock error:
     "Expected thinking or redacted_thinking, but found tool_use"
 
-    Related issue: https://github.com/BerriAI/litellm/issues/14194
+
     """
     from litellm.utils import last_assistant_with_tool_calls_has_no_thinking_blocks
 
@@ -5080,7 +5080,7 @@ def test_transform_response_with_both_json_tool_call_and_real_tool():
     """
     When Bedrock returns BOTH json_tool_call AND a real tool (get_weather),
     only the real tool should remain in tool_calls. The json_tool_call should be filtered out.
-    Fixes https://github.com/BerriAI/litellm/issues/18381
+
     """
     from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
     from litellm.types.utils import ModelResponse

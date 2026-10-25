@@ -10,8 +10,10 @@ from litellm.proxy._types import WebhookEvent
 from litellm.repositories.team_repository import TeamRepository
 
 # we use this for the email header, please send a test email if you change this. verify it looks good on email
-LITELLM_LOGO_URL: Final = "https://litellm-listing.s3.amazonaws.com/litellm_logo.png"
-LITELLM_SUPPORT_CONTACT: Final = "support@berri.ai"
+# No hosted default logo; set EMAIL_LOGO_URL to show one in alert emails.
+LITELLM_LOGO_URL: Final = ""
+# No default support address; set EMAIL_SUPPORT_CONTACT to show one in alert emails.
+LITELLM_SUPPORT_CONTACT: Final = ""
 
 
 async def get_all_team_member_emails(team_id: str | None = None) -> list:

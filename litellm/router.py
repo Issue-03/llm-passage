@@ -1,7 +1,7 @@
 # +-----------------------------------------------+
 # |                                               |
 # |           Give Feedback / Get Help            |
-# | https://github.com/BerriAI/litellm/issues/new |
+# | |
 # |                                               |
 # +-----------------------------------------------+
 #
@@ -930,7 +930,7 @@ class Router:
         from litellm._service_logger import ServiceLogging
 
         self.service_logger_obj: ServiceLogging = ServiceLogging()
-        litellm.suppress_debug_info = True  # prevents 'Give Feedback/Get help' message from being emitted on Router - Relevant Issue: https://github.com/BerriAI/litellm/issues/5942
+        litellm.suppress_debug_info = True  # prevents 'Give Feedback/Get help' message from being emitted on Router
         if self.set_verbose is True:
             if debug_level == "INFO":
                 verbose_router_logger.setLevel(logging.INFO)
@@ -7415,7 +7415,7 @@ class Router:
                     return response
 
                 else:
-                    error_message = f"model={model_group}. context_window_fallbacks={mask_sensitive_structure(context_window_fallbacks)}. fallbacks={mask_sensitive_structure(fallbacks)}.\n\nSet 'context_window_fallback' - https://docs.litellm.ai/docs/routing#fallbacks"
+                    error_message = f"model={model_group}. context_window_fallbacks={mask_sensitive_structure(context_window_fallbacks)}. fallbacks={mask_sensitive_structure(fallbacks)}.\n\nSet 'context_window_fallback'"
                     verbose_router_logger.info(
                         msg=f"Got 'ContextWindowExceededError'. No context_window_fallback set. Defaulting \
                         to fallbacks, if available.{error_message}"
@@ -7447,7 +7447,7 @@ class Router:
                     )
                     return response
                 else:
-                    error_message = f"model={model_group}. content_policy_fallback={mask_sensitive_structure(content_policy_fallbacks)}. fallbacks={mask_sensitive_structure(fallbacks)}.\n\nSet 'content_policy_fallback' - https://docs.litellm.ai/docs/routing#fallbacks"
+                    error_message = f"model={model_group}. content_policy_fallback={mask_sensitive_structure(content_policy_fallbacks)}. fallbacks={mask_sensitive_structure(fallbacks)}.\n\nSet 'content_policy_fallback'"
                     verbose_router_logger.info(
                         msg=f"Got 'ContentPolicyViolationError'. No content_policy_fallback set. Defaulting \
                         to fallbacks, if available.{error_message}"
@@ -9524,7 +9524,7 @@ class Router:
 
             if _litellm_params.get("organization", None) is not None and isinstance(
                 _litellm_params["organization"], list
-            ):  # Addresses https://github.com/BerriAI/litellm/issues/3949
+            ):  # Addresses
                 for org in _litellm_params["organization"]:
                     _litellm_params["organization"] = org
                     self._create_deployment(
@@ -10689,7 +10689,7 @@ class Router:
                 )
             else:
                 verbose_router_logger.error(
-                    "Could not identify azure model '%s'. Set azure 'base_model' for accurate max tokens, cost tracking, etc.- https://docs.litellm.ai/docs/proxy/cost_tracking#spend-tracking-for-azure-openai-models",
+                    "Could not identify azure model '%s'. Set azure 'base_model' for accurate max tokens, cost tracking, etc.",
                     _model,
                 )
         elif custom_llm_provider != "azure":
@@ -12400,7 +12400,7 @@ class Router:
         """
         Filter out model in model group, if:
 
-        - model context window < message length. For azure openai models, requires 'base_model' is set. - https://docs.litellm.ai/docs/proxy/cost_tracking#spend-tracking-for-azure-openai-models
+        - model context window < message length. For azure openai models, requires 'base_model' is set.
         - filter models above rpm limits
         - if region given, filter out models not in that region / unknown region
         - [TODO] function call and model doesn't support function calling

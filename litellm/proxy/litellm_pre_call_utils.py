@@ -1539,7 +1539,7 @@ class LiteLLMProxyRequestSetup:
         """
         Add litellm metadata from request headers
 
-        Relevant issue: https://github.com/BerriAI/litellm/issues/14008
+
         """
         from litellm.proxy._types import LitellmMetadataFromRequestHeaders
 
@@ -3515,14 +3515,12 @@ def _add_otel_traceparent_to_data(data: dict, request: Request):
         return
     if open_telemetry_logger is None:
         # if user is not use OTEL don't send extra_headers
-        # relevant issue: https://github.com/BerriAI/litellm/issues/4448
         return
 
     if litellm.forward_traceparent_to_llm_provider is True:
         if request.headers:
             if "traceparent" in request.headers:
                 # we want to forward this to the LLM Provider
-                # Relevant issue: https://github.com/BerriAI/litellm/issues/4419
                 # pass this in extra_headers
                 if "extra_headers" not in data:
                     data["extra_headers"] = {}

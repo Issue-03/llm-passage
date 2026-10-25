@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 import ViewUserSpend from "@/components/view_user_spend";
 import { ProxySettings } from "@/app/(dashboard)/hooks/proxySettings/useProxySettings";
 import AdvancedDatePicker from "@/components/shared/advanced_date_picker";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Combobox,
@@ -129,8 +128,8 @@ const UsagePage: React.FC<UsagePageProps> = ({ accessToken, token, userRole, use
   const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
   const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
-  let startTime = formatDate(firstDay);
-  let endTime = formatDate(lastDay);
+  const startTime = formatDate(firstDay);
+  const endTime = formatDate(lastDay);
 
   const selectableKeys: { token: string; alias: string }[] = (keys ?? [])
     .filter((key: any) => key && typeof key["key_alias"] === "string" && key["key_alias"].length > 0)
@@ -184,7 +183,7 @@ const UsagePage: React.FC<UsagePageProps> = ({ accessToken, token, userRole, use
       return;
     }
 
-    let newTopUserData = await adminTopEndUsersCall(
+    const newTopUserData = await adminTopEndUsersCall(
       accessToken,
       uiSelectedKey,
       startTime.toISOString(),
@@ -205,7 +204,7 @@ const UsagePage: React.FC<UsagePageProps> = ({ accessToken, token, userRole, use
       return; // Don't run expensive DB queries - return out when SpendLogs has more than 1M rows
     }
 
-    let top_tags = await tagsSpendLogsCall(
+    const top_tags = await tagsSpendLogsCall(
       accessToken,
       startTime.toISOString(),
       endTime.toISOString(),
@@ -216,8 +215,8 @@ const UsagePage: React.FC<UsagePageProps> = ({ accessToken, token, userRole, use
 
   function formatDate(date: Date) {
     const year = date.getFullYear();
-    let month = date.getMonth() + 1; // JS month index starts from 0
-    let day = date.getDate();
+    const month = date.getMonth() + 1; // JS month index starts from 0
+    const day = date.getDate();
 
     // Pad with 0 if month or day is less than 10
     const monthStr = month < 10 ? "0" + month : month;
@@ -540,15 +539,8 @@ const UsagePage: React.FC<UsagePageProps> = ({ accessToken, token, userRole, use
             <p className="text-sm text-muted-foreground">
               SpendLogs in DB has {proxySettings.NUM_SPEND_LOGS_ROWS} rows.
               <br></br>
-              Please follow our guide to view usage when SpendLogs has more than 1M rows.
+              Usage charts are skipped when SpendLogs has more than 1M rows.
             </p>
-            <Button
-              render={
-                <a href="https://docs.litellm.ai/docs/proxy/cost_tracking" target="_blank" rel="noreferrer">
-                  View Usage Guide
-                </a>
-              }
-            />
           </CardContent>
         </Card>
       </div>
@@ -794,15 +786,7 @@ const UsagePage: React.FC<UsagePageProps> = ({ accessToken, token, userRole, use
 
         <TabsContent value="customer-usage" keepMounted>
           <p className="mb-2 text-[12px] text-muted-foreground italic">
-            Customers of your LLM API calls. Tracked when a `user` param is passed in your LLM calls{" "}
-            <a
-              className="text-primary"
-              href="https://docs.litellm.ai/docs/proxy/users"
-              target="_blank"
-              rel="noreferrer"
-            >
-              docs here
-            </a>
+            Customers of your LLM API calls. Tracked when a `user` param is passed in your LLM calls.
           </p>
           <div className="grid grid-cols-2">
             <div>
@@ -925,17 +909,7 @@ const UsagePage: React.FC<UsagePageProps> = ({ accessToken, token, userRole, use
                   <CardTitle>Spend Per Tag</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-2">
-                  <p className="text-sm text-muted-foreground">
-                    Get Started by Tracking cost per tag{" "}
-                    <a
-                      className="text-primary"
-                      href="https://docs.litellm.ai/docs/proxy/cost_tracking"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      here
-                    </a>
-                  </p>
+                  <p className="text-sm text-muted-foreground">Tag requests to track cost per tag.</p>
                   <BarChart className="h-72" data={topTagsData} index="name" categories={["spend"]} colors={["cyan"]} />
                 </CardContent>
               </Card>

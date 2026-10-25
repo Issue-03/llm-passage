@@ -39,10 +39,7 @@ describe("TransformRequestPanel", () => {
     expect((getRequestTextarea() as HTMLTextAreaElement).value).toContain('"model": "openai/gpt-4o"');
     expect(screen.getByText(/https:\/\/api\.openai\.com\/v1\/chat\/completions/)).toBeInTheDocument();
 
-    expect(screen.getByRole("link", { name: /here/i })).toHaveAttribute(
-      "href",
-      "https://github.com/BerriAI/litellm/issues",
-    );
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("sends the edited request body as a completion call and renders the returned curl", async () => {

@@ -577,7 +577,7 @@ async def test_reversed_yaml_order_blocks_the_same_request(proxy_logging, make_u
 
 @pytest.mark.asyncio
 async def test_scan_raw_request_makes_blocking_order_independent(proxy_logging, make_user_api_key_auth, monkeypatch):
-    """Maintainer finding on BerriAI/litellm#34940: with scan_raw_request=True
+    """Maintainer finding: with scan_raw_request=True
     on the blocker, declaring the redactor first no longer lets the request
     through -- the blocker evaluates the pre-loop snapshot regardless of its
     position in the guardrails list."""
@@ -642,7 +642,7 @@ async def test_scan_raw_request_snapshot_survives_unpicklable_metadata(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     """
-    Bugbot finding on BerriAI/litellm#34940: the scan_raw_request snapshot
+    Bugbot finding: the scan_raw_request snapshot
     used a bare copy.deepcopy, which raises on request payloads carrying
     unpicklable objects (e.g. metadata["litellm_parent_otel_span"] when
     tracing is enabled) -- failing every guarded request, not just ones
@@ -668,7 +668,7 @@ async def test_scan_raw_request_isolation_survives_unpicklable_top_level_field(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     """
-    Bugbot finding on BerriAI/litellm#34940: real proxy requests carry
+    Bugbot finding: real proxy requests carry
     data["litellm_logging_obj"] (a Logging instance nesting a live OTel span
     with a real lock) by the time pre_call_hook runs -- a top-level field, not
     inside metadata, so the otel-span placeholder substitution never touches
@@ -699,7 +699,7 @@ async def test_scan_raw_request_snapshot_taken_before_pipelines(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     """
-    veria-ai finding on BerriAI/litellm#34940: the raw snapshot was taken
+    veria-ai finding: the raw snapshot was taken
     after _maybe_execute_pipelines ran, so a pipeline that masks content
     ahead of a non-pipelined scan_raw_request guardrail could still hide
     the violation from it. Simulates a pipeline-style rewrite by having
@@ -729,7 +729,7 @@ async def test_scan_raw_request_warns_when_guardrail_mutation_discarded(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     """
-    veria-ai finding on BerriAI/litellm#34940: scan_raw_request is accepted
+    veria-ai finding: scan_raw_request is accepted
     even for a guardrail that mutates the request (e.g. a masking
     integration), silently discarding its redaction and forwarding raw
     content. Config-time rejection isn't generically possible (no marker
@@ -774,7 +774,7 @@ async def test_scan_raw_request_baseline_does_not_leak_marker_under_safe_memory_
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     """
-    veria-ai finding on BerriAI/litellm#34940: safe_deep_copy returns the
+    veria-ai finding: safe_deep_copy returns the
     original object unchanged when litellm.safe_memory_mode is True, so
     calling the mutating mark_pre_call_hook_ran on the "expected baseline"
     copy actually mutates the shared raw_request_snapshot -- writing this
@@ -806,7 +806,7 @@ async def test_scan_raw_request_stamps_live_request_when_guardrail_actually_ran(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     """
-    Bugbot finding on BerriAI/litellm#34940: a scan_raw_request guardrail only
+    Bugbot finding: a scan_raw_request guardrail only
     stamped mark_pre_call_hook_ran on its own throwaway snapshot copies, never
     on the live request returned to the caller. A later
     async_pre_call_deployment_hook (router-level guardrail re-check) reads
@@ -854,7 +854,7 @@ async def test_scan_raw_request_does_not_warn_when_guardrail_only_blocks(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     """
-    Bugbot finding on BerriAI/litellm#34940: _process_guardrail_callback always
+    Bugbot finding: _process_guardrail_callback always
     returns a dict once a guardrail actually runs (it only returns None when
     should_run_guardrail is False), so checking `result is not None` is true on
     every single request -- a correctly configured, non-mutating scan_raw_request

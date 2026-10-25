@@ -4,7 +4,7 @@ Tests for Anthropic CountTokens API OAuth token handling.
 Verifies that get_required_headers() correctly handles OAuth tokens
 (sk-ant-oat*) by delegating to optionally_handle_anthropic_oauth().
 
-Regression test for https://github.com/BerriAI/litellm/issues/22040
+
 """
 
 import os

@@ -45,7 +45,7 @@ def _make_search_response() -> SearchResponse:
         results=[
             SearchResult(
                 title="LiteLLM Docs",
-                url="https://docs.litellm.ai/",
+                url="",
                 snippet="Unified interface for LLMs.",
                 date="2025-01-15",
             ),
@@ -60,7 +60,7 @@ def _make_search_response() -> SearchResponse:
 
 
 def _succeeded_outcome() -> SearchSucceeded:
-    return SearchSucceeded(text="Title: LiteLLM Docs\nURL: https://docs.litellm.ai/", response=_make_search_response())
+    return SearchSucceeded(text="Title: LiteLLM Docs\nURL:", response=_make_search_response())
 
 
 class TestIsAnthropicNativeWebSearchTool:
@@ -145,7 +145,7 @@ class TestBuildWebSearchToolResultBlock:
         assert len(block["content"]) == 2
         first = block["content"][0]
         assert first["type"] == "web_search_result"
-        assert first["url"] == "https://docs.litellm.ai/"
+        assert first["url"] == ""
         assert first["title"] == "LiteLLM Docs"
         assert first["page_age"] == "2025-01-15"
         assert first["encrypted_content"] == ""
@@ -268,7 +268,7 @@ class TestBuildPlanAttachesBlocks:
         assert blocks[0]["id"].startswith("srvtoolu_")
         assert blocks[0]["input"] == {"query": "what is litellm"}
         assert blocks[1]["tool_use_id"] == blocks[0]["id"]
-        assert blocks[1]["content"][0]["url"] == "https://docs.litellm.ai/"
+        assert blocks[1]["content"][0]["url"] == ""
 
     @pytest.mark.asyncio
     async def test_metadata_does_not_carry_blocks_when_flag_absent(self):
@@ -338,7 +338,7 @@ class TestFailedSearchOutcome:
         assert outcome == SearchSucceeded(text="Title: x", response=_make_search_response())
         block = WebSearchTransformation.build_web_search_outcome_block("srvtoolu_x", outcome)
         assert [item["type"] for item in block["content"]] == ["web_search_result", "web_search_result"]
-        assert block["content"][0]["url"] == "https://docs.litellm.ai/"
+        assert block["content"][0]["url"] == ""
         assert WebSearchTransformation.search_outcome_text(outcome) == "Title: x"
 
     @pytest.mark.asyncio
@@ -443,7 +443,7 @@ class TestFailedSearchOutcome:
         assert blocks[0]["input"] == {"query": "fails"}
         assert blocks[1]["content"] == {"type": "web_search_tool_result_error", "error_code": "too_many_requests"}
         assert blocks[2]["input"] == {"query": "works"}
-        assert blocks[3]["content"][0]["url"] == "https://docs.litellm.ai/"
+        assert blocks[3]["content"][0]["url"] == ""
 
 
 class TestPostHookInjectsBlocks:
@@ -556,7 +556,7 @@ class TestShortCircuitEmitsNativeBlocks:
         assert tool_result["tool_use_id"] == server_use["id"]
         # The actual search results carry through (urls + titles).
         assert len(tool_result["content"]) == 2
-        assert tool_result["content"][0]["url"] == "https://docs.litellm.ai/"
+        assert tool_result["content"][0]["url"] == ""
 
     @pytest.mark.asyncio
     async def test_litellm_standard_tool_short_circuit_stays_text_only(self):

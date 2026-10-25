@@ -145,7 +145,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
                         ),
                         request=httpx.Request(
                             method="tpm_rpm_limits",
-                            url="https://github.com/BerriAI/litellm",
+                            url="http://localhost",
                         ),
                     ),
                 )
@@ -163,7 +163,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
                             content=f"{RouterErrors.user_defined_ratelimit_error.value} rpm limit={deployment_rpm}. current usage={result}",
                             request=httpx.Request(
                                 method="tpm_rpm_limits",
-                                url="https://github.com/BerriAI/litellm",
+                                url="http://localhost",
                             ),
                         ),
                     )
@@ -179,7 +179,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
         - Used inside semaphore
         - raise rate limit error if deployment over limit
 
-        Why? solves concurrency issue - https://github.com/BerriAI/litellm/issues/2994
+        Why? solves concurrency
 
         Returns - deployment
 
@@ -219,7 +219,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
                         headers={"retry-after": str(60)},
                         request=httpx.Request(
                             method="tpm_rpm_limits",
-                            url="https://github.com/BerriAI/litellm",
+                            url="http://localhost",
                         ),
                     ),
                     num_retries=deployment.get("num_retries"),
@@ -238,7 +238,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
                             headers={"retry-after": str(60)},
                             request=httpx.Request(
                                 method="tpm_rpm_limits",
-                                url="https://github.com/BerriAI/litellm",
+                                url="http://localhost",
                             ),
                         ),
                         num_retries=deployment.get("num_retries"),
@@ -567,7 +567,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
                     headers={"retry-after": str(60)},
                     request=httpx.Request(
                         method="tpm_rpm_limits",
-                        url="https://github.com/BerriAI/litellm",
+                        url="http://localhost",
                     ),
                 ),
             )

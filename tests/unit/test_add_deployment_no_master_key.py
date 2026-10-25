@@ -2,7 +2,7 @@
 Test that add_deployment works without master_key set.
 
 This test verifies the fix for the bug where saving LLM spend logs
-failed when master_key was None. [https://github.com/BerriAI/litellm/issues/16428]
+failed when master_key was None. []
 """
 
 import os

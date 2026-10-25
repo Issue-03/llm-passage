@@ -2202,7 +2202,7 @@ class TestVertexAIGlobalLocation:
     def test_gemini_context_caching_with_custom_api_base_passes_model(self):
         """Gemini context caching with custom api_base must pass model to _check_custom_proxy.
 
-        Regression test for https://github.com/BerriAI/litellm/issues/23846
+
         Previously model was hardcoded to None, causing ValueError when api_base was set.
         """
         caching = ContextCachingEndpoints()

@@ -601,7 +601,7 @@ class TestMoonshotConfig:
     def test_reasoning_content_preserved_on_pydantic_message_object(self):
         """reasoning_content on Pydantic Message objects is preserved (not overwritten with placeholder).
 
-        Regression test for: https://github.com/BerriAI/litellm/issues/23765
+
         The issue was that 'reasoning_content' in msg doesn't work for Pydantic models
         because they don't support the 'in' operator the same way as dicts.
         """

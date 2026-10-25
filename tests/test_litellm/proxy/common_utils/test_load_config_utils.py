@@ -30,7 +30,7 @@ class TestGetFileContentsFromS3:
 
         Note: It's critical that yaml.safe_load is used
 
-        Relevant issue/PR: https://github.com/BerriAI/litellm/pull/12078
+        Relevant issue/
         """
         # Mock credentials
         mock_credentials = MagicMock()

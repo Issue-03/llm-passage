@@ -863,29 +863,29 @@ export interface paths {
         };
         /**
          * Anthropic Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion)
+         * @description
          */
         get: operations["anthropic_proxy_route_anthropic__endpoint__get"];
         /**
          * Anthropic Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion)
+         * @description
          */
         put: operations["anthropic_proxy_route_anthropic__endpoint__put"];
         /**
          * Anthropic Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion)
+         * @description
          */
         post: operations["anthropic_proxy_route_anthropic__endpoint__post"];
         /**
          * Anthropic Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion)
+         * @description
          */
         delete: operations["anthropic_proxy_route_anthropic__endpoint__delete"];
         options?: never;
         head?: never;
         /**
          * Anthropic Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion)
+         * @description
          */
         patch: operations["anthropic_proxy_route_anthropic__endpoint__patch"];
         trace?: never;
@@ -1647,7 +1647,6 @@ export interface paths {
          *     `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key
          *     and is never forwarded.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/azure_speech)
          */
         get: operations["azure_speech_proxy_route_azure_speech__endpoint__get"];
         /**
@@ -1660,7 +1659,6 @@ export interface paths {
          *     `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key
          *     and is never forwarded.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/azure_speech)
          */
         put: operations["azure_speech_proxy_route_azure_speech__endpoint__put"];
         /**
@@ -1673,7 +1671,6 @@ export interface paths {
          *     `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key
          *     and is never forwarded.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/azure_speech)
          */
         post: operations["azure_speech_proxy_route_azure_speech__endpoint__post"];
         /**
@@ -1686,7 +1683,6 @@ export interface paths {
          *     `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key
          *     and is never forwarded.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/azure_speech)
          */
         delete: operations["azure_speech_proxy_route_azure_speech__endpoint__delete"];
         options?: never;
@@ -1701,7 +1697,6 @@ export interface paths {
          *     `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key
          *     and is never forwarded.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/azure_speech)
          */
         patch: operations["azure_speech_proxy_route_azure_speech__endpoint__patch"];
         trace?: never;
@@ -1815,28 +1810,24 @@ export interface paths {
          * Bedrock Proxy Route
          * @description This is the v1 passthrough for Bedrock.
          *     V2 is handled by the `/bedrock/v2` endpoint.
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/bedrock)
          */
         get: operations["bedrock_proxy_route_bedrock__endpoint__get"];
         /**
          * Bedrock Proxy Route
          * @description This is the v1 passthrough for Bedrock.
          *     V2 is handled by the `/bedrock/v2` endpoint.
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/bedrock)
          */
         put: operations["bedrock_proxy_route_bedrock__endpoint__put"];
         /**
          * Bedrock Proxy Route
          * @description This is the v1 passthrough for Bedrock.
          *     V2 is handled by the `/bedrock/v2` endpoint.
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/bedrock)
          */
         post: operations["bedrock_proxy_route_bedrock__endpoint__post"];
         /**
          * Bedrock Proxy Route
          * @description This is the v1 passthrough for Bedrock.
          *     V2 is handled by the `/bedrock/v2` endpoint.
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/bedrock)
          */
         delete: operations["bedrock_proxy_route_bedrock__endpoint__delete"];
         options?: never;
@@ -1845,7 +1836,6 @@ export interface paths {
          * Bedrock Proxy Route
          * @description This is the v1 passthrough for Bedrock.
          *     V2 is handled by the `/bedrock/v2` endpoint.
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/bedrock)
          */
         patch: operations["bedrock_proxy_route_bedrock__endpoint__patch"];
         trace?: never;
@@ -2659,29 +2649,29 @@ export interface paths {
         };
         /**
          * Cohere Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/cohere)
+         * @description
          */
         get: operations["cohere_proxy_route_cohere__endpoint__get"];
         /**
          * Cohere Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/cohere)
+         * @description
          */
         put: operations["cohere_proxy_route_cohere__endpoint__put"];
         /**
          * Cohere Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/cohere)
+         * @description
          */
         post: operations["cohere_proxy_route_cohere__endpoint__post"];
         /**
          * Cohere Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/cohere)
+         * @description
          */
         delete: operations["cohere_proxy_route_cohere__endpoint__delete"];
         options?: never;
         head?: never;
         /**
          * Cohere Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/cohere)
+         * @description
          */
         patch: operations["cohere_proxy_route_cohere__endpoint__patch"];
         trace?: never;
@@ -2783,7 +2773,6 @@ export interface paths {
          *     `endpoint_url` at `/comprehendmedical` and the operation is read from the
          *     `X-Amz-Target` header, per the AWS JSON 1.1 protocol.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/comprehend_medical)
          */
         post: operations["comprehend_medical_sdk_proxy_route_comprehendmedical_post"];
         delete?: never;
@@ -2808,7 +2797,6 @@ export interface paths {
          *     The request body is forwarded as-is to the AWS JSON 1.1 API and signed with SigV4
          *     using the proxy's AWS credentials.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/comprehend_medical)
          */
         post: operations["comprehend_medical_proxy_route_comprehendmedical__operation__post"];
         delete?: never;
@@ -5276,29 +5264,29 @@ export interface paths {
         };
         /**
          * Gemini Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/google_ai_studio)
+         * @description
          */
         get: operations["gemini_proxy_route_gemini__endpoint__get"];
         /**
          * Gemini Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/google_ai_studio)
+         * @description
          */
         put: operations["gemini_proxy_route_gemini__endpoint__put"];
         /**
          * Gemini Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/google_ai_studio)
+         * @description
          */
         post: operations["gemini_proxy_route_gemini__endpoint__post"];
         /**
          * Gemini Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/google_ai_studio)
+         * @description
          */
         delete: operations["gemini_proxy_route_gemini__endpoint__delete"];
         options?: never;
         head?: never;
         /**
          * Gemini Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/google_ai_studio)
+         * @description
          */
         patch: operations["gemini_proxy_route_gemini__endpoint__patch"];
         trace?: never;
@@ -5631,29 +5619,29 @@ export interface paths {
         };
         /**
          * Gigachat Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/gigachat)
+         * @description
          */
         get: operations["gigachat_proxy_route_gigachat__endpoint__get"];
         /**
          * Gigachat Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/gigachat)
+         * @description
          */
         put: operations["gigachat_proxy_route_gigachat__endpoint__put"];
         /**
          * Gigachat Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/gigachat)
+         * @description
          */
         post: operations["gigachat_proxy_route_gigachat__endpoint__post"];
         /**
          * Gigachat Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/gigachat)
+         * @description
          */
         delete: operations["gigachat_proxy_route_gigachat__endpoint__delete"];
         options?: never;
         head?: never;
         /**
          * Gigachat Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/gigachat)
+         * @description
          */
         patch: operations["gigachat_proxy_route_gigachat__endpoint__patch"];
         trace?: never;
@@ -6213,7 +6201,6 @@ export interface paths {
          * Create Guardrail
          * @description Create a new guardrail
          *
-         *     👉 [Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/quick_start)
          *
          *     Example Request:
          *     ```bash
@@ -6297,7 +6284,6 @@ export interface paths {
          * List Guardrails
          * @description List the guardrails that are available on the proxy server
          *
-         *     👉 [Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/quick_start)
          *
          *     Example Request:
          *     ```bash
@@ -6351,7 +6337,7 @@ export interface paths {
          * @description Register a guardrail for onboarding (team submission).
          *
          *     Accepts a guardrail config in the
-         *     [Generic Guardrail API](https://docs.litellm.ai/docs/adding_provider/generic_guardrail_api) format.
+         *     Generic Guardrail API format.
          *     The submission is stored with status `pending_review` until an admin approves it.
          */
         post: operations["register_guardrail_guardrails_register_post"];
@@ -6469,7 +6455,6 @@ export interface paths {
          *     2. Executing the apply_guardrail function with test input
          *     3. Returning the result (allow/block/modify)
          *
-         *     👉 [Custom Code Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/custom_code_guardrail)
          *
          *     Example Request:
          *     ```bash
@@ -6800,7 +6785,6 @@ export interface paths {
          * Get Guardrail Info
          * @description Get detailed information about a specific guardrail by ID
          *
-         *     👉 [Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/quick_start)
          *
          *     Example Request:
          *     ```bash
@@ -6833,7 +6817,6 @@ export interface paths {
          * Update Guardrail
          * @description Update an existing guardrail
          *
-         *     👉 [Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/quick_start)
          *
          *     Example Request:
          *     ```bash
@@ -6883,7 +6866,6 @@ export interface paths {
          * Delete Guardrail
          * @description Delete a guardrail
          *
-         *     👉 [Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/quick_start)
          *
          *     Example Request:
          *     ```bash
@@ -6905,7 +6887,6 @@ export interface paths {
          * Patch Guardrail
          * @description Partially update an existing guardrail
          *
-         *     👉 [Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/quick_start)
          *
          *     This endpoint allows updating specific fields of a guardrail without sending the entire object.
          *     Only the following fields can be updated:
@@ -6961,7 +6942,6 @@ export interface paths {
          * Get Guardrail Info
          * @description Get detailed information about a specific guardrail by ID
          *
-         *     👉 [Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/quick_start)
          *
          *     Example Request:
          *     ```bash
@@ -7009,7 +6989,7 @@ export interface paths {
          * Health Endpoint
          * @description 🚨 USE `/health/liveliness` to health check the proxy 🚨
          *
-         *     See more 👉 https://docs.litellm.ai/docs/proxy/health
+         *     See more 👉
          *
          *
          *     Check the health of all the endpoints in config.yaml
@@ -7903,7 +7883,6 @@ export interface paths {
          * Generate Key Fn
          * @description Generate an API key based on the provided data.
          *
-         *     Docs: https://docs.litellm.ai/docs/proxy/virtual_keys
          *
          *     Parameters:
          *     - duration: Optional[str] - Specify the length of time the token is valid for. You can set duration as seconds ("30s"), minutes ("30m"), hours ("30h"), days ("30d").
@@ -7917,14 +7896,14 @@ export interface paths {
          *     - budget_id: Optional[str] - The budget id associated with the key. Created by calling `/budget/new`.
          *     - end_user_budget_id: Optional[str] - Proxy admin only. Budget id applied to end users first seen through this key that carry no budget of their own. Takes precedence over `litellm_settings.max_end_user_budget_id`.
          *     - models: Optional[list] - Model_name's a user is allowed to call. (if empty, key is allowed to call all models)
-         *     - aliases: Optional[dict] - Any alias mappings, on top of anything in the config.yaml model list. - https://docs.litellm.ai/docs/proxy/virtual_keys#managing-auth---upgradedowngrade-models
+         *     - aliases: Optional[dict] - Any alias mappings, on top of anything in the config.yaml model list.
          *     - config: Optional[dict] - any key-specific configs, overrides config in config.yaml
-         *     - spend: Optional[int] - Amount spent by key. Default is 0. Will be updated by proxy whenever key is used. https://docs.litellm.ai/docs/proxy/virtual_keys#managing-auth---tracking-spend
+         *     - spend: Optional[int] - Amount spent by key. Default is 0. Will be updated by proxy whenever key is used.
          *     - send_invite_email: Optional[bool] - Whether to send an invite email to the user_id, with the generate key
          *     - max_budget: Optional[float] - Specify max budget for a given key.
          *     - budget_duration: Optional[str] - Budget is reset at the end of specified duration. If not set, budget is never reset. You can set duration as seconds ("30s"), minutes ("30m"), hours ("30h"), days ("30d").
          *     - max_parallel_requests: Optional[int] - Rate limit a user based on the number of parallel requests. Raises 429 error, if user's parallel requests > x.
-         *     - metadata: Optional[dict] - Metadata for key, store information for key. Example metadata = {"team": "core-infra", "app": "app2", "email": "ishaan@berri.ai" }
+         *     - metadata: Optional[dict] - Metadata for key, store information for key. Example metadata = {"team": "core-infra", "app": "app2", "email": "user@example.com" }
          *     - guardrails: Optional[List[str]] - List of active guardrails for the key
          *     - policies: Optional[List[str]] - List of policy names to apply to the key. Policies define guardrails, conditions, and inheritance rules.
          *     - disable_global_guardrails: Optional[bool] - Whether to disable global guardrails for the key. Proxy admin only.
@@ -7941,7 +7920,7 @@ export interface paths {
          *     - tag_rpm_limit: Optional[dict] - key-specific per-request-tag rpm limit, keyed by request tag. Example - {"cell-1": 1000, "cell-2": 500}. Each tag gets an independent counter; requests whose tag is absent fall back to the key-level rpm limit.
          *     - tpm_limit_type: Optional[str] - Type of tpm limit. Options: "best_effort_throughput" (no error if we're overallocating tpm), "guaranteed_throughput" (raise an error if we're overallocating tpm), "dynamic" (dynamically exceed limit when no 429 errors). Defaults to "best_effort_throughput".
          *     - rpm_limit_type: Optional[str] - Type of rpm limit. Options: "best_effort_throughput" (no error if we're overallocating rpm), "guaranteed_throughput" (raise an error if we're overallocating rpm), "dynamic" (dynamically exceed limit when no 429 errors). Defaults to "best_effort_throughput".
-         *     - allowed_cache_controls: Optional[list] - List of allowed cache control values. Example - ["no-cache", "no-store"]. See all values - https://docs.litellm.ai/docs/proxy/caching#turn-on--off-caching-per-request
+         *     - allowed_cache_controls: Optional[list] - List of allowed cache control values. Example - ["no-cache", "no-store"].
          *     - blocked: Optional[bool] - Whether the key is blocked.
          *     - rpm_limit: Optional[int] - Specify rpm limit for a given key (Requests per minute)
          *     - tpm_limit: Optional[int] - Specify tpm limit for a given key (Tokens per minute)
@@ -7949,7 +7928,7 @@ export interface paths {
          *     - soft_budget: Optional[float] - Specify soft budget for a given key. Will trigger a slack alert when this soft budget is reached.
          *     - tags: Optional[List[str]] - Tags for [tracking spend](https://litellm.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://litellm.vercel.app/docs/proxy/tag_routing).
          *     - prompts: Optional[List[str]] - List of prompts that the key is allowed to use.
-         *     - enforced_params: Optional[List[str]] - List of enforced params for the key (Enterprise only). [Docs](https://docs.litellm.ai/docs/proxy/enterprise#enforce-required-params-for-llm-requests)
+         *     - enforced_params: Optional[List[str]] - List of enforced params for the key (Enterprise only).
          *     - prompts: Optional[List[str]] - List of prompts that the key is allowed to use.
          *     - allowed_routes: Optional[list] - List of allowed routes for the key. Store the actual route or store a wildcard pattern for a set of routes. Example - ["/chat/completions", "/embeddings", "/keys/*"]
          *     - allowed_passthrough_routes: Optional[list] - List of allowed pass through endpoints for the key. Store the actual endpoint or store a wildcard pattern for a set of endpoints. Example - ["/my-custom-endpoint"]. Use this instead of allowed_routes, if you just want to specify which pass through endpoints the key can access, without specifying the routes. If allowed_routes is specified, allowed_pass_through_endpoints is ignored.
@@ -8231,7 +8210,6 @@ export interface paths {
          *     - Prevent key from being deleted when user is deleted.
          *     - Apply team limits, not team member limits to key.
          *
-         *     Docs: https://docs.litellm.ai/docs/proxy/virtual_keys
          *
          *     Parameters:
          *     - duration: Optional[str] - Specify the length of time the token is valid for. You can set duration as seconds ("30s"), minutes ("30m"), hours ("30h"), days ("30d").
@@ -8242,14 +8220,14 @@ export interface paths {
          *     - budget_id: Optional[str] - The budget id associated with the key. Created by calling `/budget/new`.
          *     - end_user_budget_id: Optional[str] - Proxy admin only. Budget id applied to end users first seen through this key that carry no budget of their own. Omit to keep the current value, pass an empty string to clear it.
          *     - models: Optional[list] - Model_name's a user is allowed to call. (if empty, key is allowed to call all models)
-         *     - aliases: Optional[dict] - Any alias mappings, on top of anything in the config.yaml model list. - https://docs.litellm.ai/docs/proxy/virtual_keys#managing-auth---upgradedowngrade-models
+         *     - aliases: Optional[dict] - Any alias mappings, on top of anything in the config.yaml model list.
          *     - config: Optional[dict] - any key-specific configs, overrides config in config.yaml
-         *     - spend: Optional[int] - Amount spent by key. Default is 0. Will be updated by proxy whenever key is used. https://docs.litellm.ai/docs/proxy/virtual_keys#managing-auth---tracking-spend
+         *     - spend: Optional[int] - Amount spent by key. Default is 0. Will be updated by proxy whenever key is used.
          *     - send_invite_email: Optional[bool] - Whether to send an invite email to the user_id, with the generate key
          *     - max_budget: Optional[float] - Specify max budget for a given key.
          *     - budget_duration: Optional[str] - Budget is reset at the end of specified duration. If not set, budget is never reset. You can set duration as seconds ("30s"), minutes ("30m"), hours ("30h"), days ("30d").
          *     - max_parallel_requests: Optional[int] - Rate limit a user based on the number of parallel requests. Raises 429 error, if user's parallel requests > x.
-         *     - metadata: Optional[dict] - Metadata for key, store information for key. Example metadata = {"team": "core-infra", "app": "app2", "email": "ishaan@berri.ai" }
+         *     - metadata: Optional[dict] - Metadata for key, store information for key. Example metadata = {"team": "core-infra", "app": "app2", "email": "user@example.com" }
          *     - guardrails: Optional[List[str]] - List of active guardrails for the key
          *     - permissions: Optional[dict] - key-specific permissions. Currently just used for turning off pii masking (if connected). Example - {"pii": false}
          *     - model_max_budget: Optional[Dict[str, BudgetConfig]] - Model-specific budgets {"gpt-4": {"budget_limit": 0.0005, "time_period": "30d"}}}. IF null or {} then no model specific budget.
@@ -8261,14 +8239,14 @@ export interface paths {
          *     - mcp_rpm_limit: Optional[dict] - key-specific per-MCP-server rpm limit, keyed by MCP server name (alias if set, else the configured name). Example - {"github": 100, "slack": 200}. IF null or {} then no MCP-specific rpm limit.
          *     - tpm_limit_type: Optional[str] - TPM rate limit type - "best_effort_throughput", "guaranteed_throughput", or "dynamic"
          *     - rpm_limit_type: Optional[str] - RPM rate limit type - "best_effort_throughput", "guaranteed_throughput", or "dynamic"
-         *     - allowed_cache_controls: Optional[list] - List of allowed cache control values. Example - ["no-cache", "no-store"]. See all values - https://docs.litellm.ai/docs/proxy/caching#turn-on--off-caching-per-request
+         *     - allowed_cache_controls: Optional[list] - List of allowed cache control values. Example - ["no-cache", "no-store"].
          *     - blocked: Optional[bool] - Whether the key is blocked.
          *     - rpm_limit: Optional[int] - Specify rpm limit for a given key (Requests per minute)
          *     - tpm_limit: Optional[int] - Specify tpm limit for a given key (Tokens per minute)
          *     - tpd_limit: Optional[int] - Specify tpd limit for a given key (Tokens per day). Charged by batch submissions instead of tpm_limit/rpm_limit.
          *     - soft_budget: Optional[float] - Specify soft budget for a given key. Will trigger a slack alert when this soft budget is reached.
          *     - tags: Optional[List[str]] - Tags for [tracking spend](https://litellm.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://litellm.vercel.app/docs/proxy/tag_routing).
-         *     - enforced_params: Optional[List[str]] - List of enforced params for the key (Enterprise only). [Docs](https://docs.litellm.ai/docs/proxy/enterprise#enforce-required-params-for-llm-requests)
+         *     - enforced_params: Optional[List[str]] - List of enforced params for the key (Enterprise only).
          *     - allowed_routes: Optional[list] - List of allowed routes for the key. Store the actual route or store a wildcard pattern for a set of routes. Example - ["/chat/completions", "/embeddings", "/keys/*"]
          *     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - key-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
          *     Examples:
@@ -8382,7 +8360,7 @@ export interface paths {
          *     - models: Optional[list] - Model_name's a user is allowed to call
          *     - tags: Optional[List[str]] - Tags for organizing keys (Enterprise only)
          *     - prompts: Optional[List[str]] - List of prompts that the key is allowed to use.
-         *     - enforced_params: Optional[List[str]] - List of enforced params for the key (Enterprise only). [Docs](https://docs.litellm.ai/docs/proxy/enterprise#enforce-required-params-for-llm-requests)
+         *     - enforced_params: Optional[List[str]] - List of enforced params for the key (Enterprise only).
          *     - spend: Optional[float] - Amount spent by key
          *     - max_budget: Optional[float] - Max budget for key
          *     - model_max_budget: Optional[Dict[str, BudgetConfig]] - Model-specific budgets {"gpt-4": {"budget_limit": 0.0005, "time_period": "30d"}}
@@ -8540,28 +8518,24 @@ export interface paths {
          * Langfuse Proxy Route
          * @description Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/langfuse)
          */
         get: operations["langfuse_proxy_route_langfuse__endpoint__get"];
         /**
          * Langfuse Proxy Route
          * @description Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/langfuse)
          */
         put: operations["langfuse_proxy_route_langfuse__endpoint__put"];
         /**
          * Langfuse Proxy Route
          * @description Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/langfuse)
          */
         post: operations["langfuse_proxy_route_langfuse__endpoint__post"];
         /**
          * Langfuse Proxy Route
          * @description Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/langfuse)
          */
         delete: operations["langfuse_proxy_route_langfuse__endpoint__delete"];
         options?: never;
@@ -8570,7 +8544,6 @@ export interface paths {
          * Langfuse Proxy Route
          * @description Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/langfuse)
          */
         patch: operations["langfuse_proxy_route_langfuse__endpoint__patch"];
         trace?: never;
@@ -9162,29 +9135,29 @@ export interface paths {
         };
         /**
          * Mistral Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/mistral)
+         * @description
          */
         get: operations["mistral_proxy_route_mistral__endpoint__get"];
         /**
          * Mistral Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/mistral)
+         * @description
          */
         put: operations["mistral_proxy_route_mistral__endpoint__put"];
         /**
          * Mistral Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/mistral)
+         * @description
          */
         post: operations["mistral_proxy_route_mistral__endpoint__post"];
         /**
          * Mistral Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/mistral)
+         * @description
          */
         delete: operations["mistral_proxy_route_mistral__endpoint__delete"];
         options?: never;
         head?: never;
         /**
          * Mistral Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/mistral)
+         * @description
          */
         patch: operations["mistral_proxy_route_mistral__endpoint__patch"];
         trace?: never;
@@ -9632,7 +9605,7 @@ export interface paths {
          *     -H 'accept: application/json'     -H 'Authorization: Bearersk-1234'
          *     ```
          *
-         *     Learn how to use and set wildcard models [here](https://docs.litellm.ai/docs/wildcard_routing)
+         *     Learn how to use and set wildcard models
          *
          *     Example Response:
          *     ```json
@@ -10560,7 +10533,6 @@ export interface paths {
          *         - /openai_passthrough/v1/responses/{response_id}
          *         - /openai_passthrough/v1/responses/{response_id}/input_items
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)
          */
         get: operations["openai_proxy_route_openai__endpoint__get"];
         /**
@@ -10585,7 +10557,6 @@ export interface paths {
          *         - /openai_passthrough/v1/responses/{response_id}
          *         - /openai_passthrough/v1/responses/{response_id}/input_items
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)
          */
         put: operations["openai_proxy_route_openai__endpoint__put"];
         /**
@@ -10610,7 +10581,6 @@ export interface paths {
          *         - /openai_passthrough/v1/responses/{response_id}
          *         - /openai_passthrough/v1/responses/{response_id}/input_items
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)
          */
         post: operations["openai_proxy_route_openai__endpoint__post"];
         /**
@@ -10635,7 +10605,6 @@ export interface paths {
          *         - /openai_passthrough/v1/responses/{response_id}
          *         - /openai_passthrough/v1/responses/{response_id}/input_items
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)
          */
         delete: operations["openai_proxy_route_openai__endpoint__delete"];
         options?: never;
@@ -10662,7 +10631,6 @@ export interface paths {
          *         - /openai_passthrough/v1/responses/{response_id}
          *         - /openai_passthrough/v1/responses/{response_id}/input_items
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)
          */
         patch: operations["openai_proxy_route_openai__endpoint__patch"];
         trace?: never;
@@ -10684,7 +10652,6 @@ export interface paths {
          *         - /openai_passthrough/v1/responses/{response_id}
          *         - /openai_passthrough/v1/responses/{response_id}/input_items
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)
          */
         get: operations["openai_passthrough_route_openai_passthrough__endpoint__get"];
         /**
@@ -10697,7 +10664,6 @@ export interface paths {
          *         - /openai_passthrough/v1/responses/{response_id}
          *         - /openai_passthrough/v1/responses/{response_id}/input_items
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)
          */
         put: operations["openai_passthrough_route_openai_passthrough__endpoint__put"];
         /**
@@ -10710,7 +10676,6 @@ export interface paths {
          *         - /openai_passthrough/v1/responses/{response_id}
          *         - /openai_passthrough/v1/responses/{response_id}/input_items
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)
          */
         post: operations["openai_passthrough_route_openai_passthrough__endpoint__post"];
         /**
@@ -10723,7 +10688,6 @@ export interface paths {
          *         - /openai_passthrough/v1/responses/{response_id}
          *         - /openai_passthrough/v1/responses/{response_id}/input_items
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)
          */
         delete: operations["openai_passthrough_route_openai_passthrough__endpoint__delete"];
         options?: never;
@@ -10738,7 +10702,6 @@ export interface paths {
          *         - /openai_passthrough/v1/responses/{response_id}
          *         - /openai_passthrough/v1/responses/{response_id}/input_items
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/openai_passthrough)
          */
         patch: operations["openai_passthrough_route_openai_passthrough__endpoint__patch"];
         trace?: never;
@@ -10903,7 +10866,7 @@ export interface paths {
          *         "organization_id": "45e3e396-ee08-4a61-a88e-16b3ce7e0849",
          *         "member": {
          *             "role": "internal_user",
-         *             "user_id": "krrish247652@berri.ai"
+         *             "user_id": "user@example.com"
          *         },
          *         "max_budget_in_organization": 100.0
          *     }'
@@ -10999,7 +10962,7 @@ export interface paths {
          *     - blocked: *bool* - Flag indicating if the org is blocked or not - will stop all calls from keys with this org_id.
          *     - tags: *Optional[List[str]]* - Tags for [tracking spend](https://litellm.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://litellm.vercel.app/docs/proxy/tag_routing).
          *     - organization_id: *Optional[str]* - The organization id of the team. Default is None. Create via `/organization/new`.
-         *     - model_aliases: Optional[dict] - Model aliases for the team. [Docs](https://docs.litellm.ai/docs/proxy/team_based_routing#create-team-with-model-alias)
+         *     - model_aliases: Optional[dict] - Model aliases for the team.
          *     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - organization-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"]}. IF null or {} then no object permission.
          *     - allowed_models: Optional[List[str]] - List of models the organization is allowed to access. If not set, defaults to the models field.
          *     - temp_budget_increase: *Optional[float]* - Stored on the org budget row but only enforced for team member budgets today.
@@ -12276,7 +12239,6 @@ export interface paths {
          * Create Prompt
          * @description Create a new prompt
          *
-         *     👉 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)
          *
          *     Example Request:
          *     ```bash
@@ -12314,7 +12276,6 @@ export interface paths {
          * List Prompts
          * @description List the prompts that are available on the proxy server
          *
-         *     👉 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)
          *
          *     Example Request:
          *     ```bash
@@ -12367,7 +12328,6 @@ export interface paths {
          *     This endpoint allows testing prompts before saving them to the database.
          *     The response is always streamed.
          *
-         *     👉 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)
          *
          *     Example Request:
          *     ```bash
@@ -12400,7 +12360,6 @@ export interface paths {
          * Get Prompt Info
          * @description Get detailed information about a specific prompt by ID, including prompt content
          *
-         *         👉 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)
          *
          *         Example Request:
          *         ```bash
@@ -12433,7 +12392,6 @@ export interface paths {
          * Update Prompt
          * @description Update an existing prompt
          *
-         *     👉 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)
          *
          *     Example Request:
          *     ```bash
@@ -12460,7 +12418,6 @@ export interface paths {
          * Delete Prompt
          * @description Delete a prompt
          *
-         *     👉 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)
          *
          *     Example Request:
          *     ```bash
@@ -12482,7 +12439,6 @@ export interface paths {
          * Patch Prompt
          * @description Partially update an existing prompt
          *
-         *     👉 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)
          *
          *     This endpoint allows updating specific fields of a prompt without sending the entire object.
          *     Only the following fields can be updated:
@@ -12515,7 +12471,6 @@ export interface paths {
          * Get Prompt Info
          * @description Get detailed information about a specific prompt by ID, including prompt content
          *
-         *         👉 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)
          *
          *         Example Request:
          *         ```bash
@@ -12563,7 +12518,6 @@ export interface paths {
          * Get Prompt Versions
          * @description Get all versions of a specific prompt by base prompt ID
          *
-         *     👉 [Prompt docs](https://docs.litellm.ai/docs/proxy/prompt_management)
          *
          *     Example Request:
          *     ```bash
@@ -12611,7 +12565,7 @@ export interface paths {
         };
         /**
          * Provider Budgets
-         * @description Provider Budget Routing - Get Budget, Spend Details https://docs.litellm.ai/docs/proxy/provider_budget_routing
+         * @description Provider Budget Routing - Get Budget, Spend Details
          *
          *     Use this endpoint to check current budget, spend and budget reset time for a provider
          *
@@ -14599,7 +14553,7 @@ export interface paths {
          *
          *     Calculate spend **before** making call:
          *
-         *     Note: If you see a spend of $0.0 you need to set custom_pricing for your model: https://docs.litellm.ai/docs/proxy/custom_pricing
+         *     Note: If you see a spend of $0.0 you need to set custom_pricing for your model.
          *
          *     ```
          *     curl --location 'http://localhost:4000/spend/calculate'
@@ -14746,7 +14700,7 @@ export interface paths {
          *
          *     Example Request for specific user_id
          *     ```
-         *     curl -X GET "http://0.0.0.0:8000/spend/logs?user_id=ishaan@berri.ai" -H "Authorization: Bearer sk-1234"
+         *     curl -X GET "http://0.0.0.0:8000/spend/logs?user_id=user@example.com" -H "Authorization: Bearer sk-1234"
          *     ```
          *
          *     Example Request for date range with individual logs (unsummarized)
@@ -15863,7 +15817,7 @@ export interface paths {
          *     Only proxy_admin or admin of team, allowed to access this endpoint.
          *     ```
          *
-         *     curl -X POST 'http://0.0.0.0:4000/team/member_add'     -H 'Authorization: Bearer sk-1234'     -H 'Content-Type: application/json'     -d '{"team_id": "45e3e396-ee08-4a61-a88e-16b3ce7e0849", "member": {"role": "user", "user_id": "krrish247652@berri.ai"}}'
+         *     curl -X POST 'http://0.0.0.0:4000/team/member_add'     -H 'Authorization: Bearer sk-1234'     -H 'Content-Type: application/json'     -d '{"team_id": "45e3e396-ee08-4a61-a88e-16b3ce7e0849", "member": {"role": "user", "user_id": "user@example.com"}}'
          *
          *     ```
          */
@@ -15896,7 +15850,7 @@ export interface paths {
          *     -H 'Content-Type: application/json'
          *     -d '{
          *         "team_id": "45e3e396-ee08-4a61-a88e-16b3ce7e0849",
-         *         "user_id": "krrish247652@berri.ai"
+         *         "user_id": "user@example.com"
          *     }'
          *     ```
          */
@@ -16031,7 +15985,6 @@ export interface paths {
          * New Team
          * @description Allow users to create a new team. Apply user permissions to their team.
          *
-         *     👉 [Detailed Doc on setting team budgets](https://docs.litellm.ai/docs/proxy/team_budgets)
          *
          *
          *     Parameters:
@@ -16052,27 +16005,27 @@ export interface paths {
          *     - tpm_limit_type: Optional[Literal["guaranteed_throughput", "best_effort_throughput"]] - The type of TPM limit enforcement. Use "guaranteed_throughput" to raise an error if overallocating TPM, or "best_effort_throughput" for best effort enforcement.
          *     - max_budget: Optional[float] - The maximum budget allocated to the team - all keys for this team_id will have at max this max_budget
          *     - soft_budget: Optional[float] - The soft budget threshold for the team. If max_budget is set, soft_budget must be strictly lower than max_budget. Can be set independently if max_budget is not set.
-         *     - budget_duration: Optional[str] - The duration of the budget for the team. Doc [here](https://docs.litellm.ai/docs/proxy/team_budgets)
+         *     - budget_duration: Optional[str] - The duration of the budget for the team
          *     - models: Optional[list] - A list of models associated with the team - all keys for this team_id will have at most, these models. If empty, assumes all models are allowed.
          *     - blocked: bool - Flag indicating if the team is blocked or not - will stop all calls from keys with this team_id.
          *     - members: Optional[List] - Control team members via `/team/member/add` and `/team/member/delete`.
          *     - tags: Optional[List[str]] - Tags for [tracking spend](https://litellm.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://litellm.vercel.app/docs/proxy/tag_routing).
          *     - prompts: Optional[List[str]] - List of prompts that the team is allowed to use.
          *     - organization_id: Optional[str] - The organization id of the team. Default is None. Create via `/organization/new`.
-         *     - model_aliases: Optional[dict] - Model aliases for the team. [Docs](https://docs.litellm.ai/docs/proxy/team_based_routing#create-team-with-model-alias)
+         *     - model_aliases: Optional[dict] - Model aliases for the team.
          *     - model_max_budget: Optional[dict] - Per-model max budget every key on the team inherits unless the key sets its own for that model. Example: {"gpt-4o": {"max_budget": 10, "budget_duration": "1d"}}
-         *     - guardrails: Optional[List[str]] - Guardrails for the team. [Docs](https://docs.litellm.ai/docs/proxy/guardrails)
-         *     - policies: Optional[List[str]] - Policies for the team. [Docs](https://docs.litellm.ai/docs/proxy/guardrails/guardrail_policies)
+         *     - guardrails: Optional[List[str]] - Guardrails for the team.
+         *     - policies: Optional[List[str]] - Policies for the team.
          *     - disable_global_guardrails: Optional[bool] - Whether to disable global guardrails for the team. Proxy admin only.
          *     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - team-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
          *     - team_member_budget: Optional[float] - The maximum budget allocated to an individual team member.
-         *     - team_member_budget_duration: Optional[str] - The duration of the budget for the team member. Doc [here](https://docs.litellm.ai/docs/proxy/team_budgets)
+         *     - team_member_budget_duration: Optional[str] - The duration of the budget for the team member
          *     - team_member_rpm_limit: Optional[int] - The RPM (Requests Per Minute) limit for individual team members.
          *     - team_member_tpm_limit: Optional[int] - The TPM (Tokens Per Minute) limit for individual team members.
          *     - team_member_key_duration: Optional[str] - The duration for a team member's key. e.g. "1d", "1w", "1mo"
          *     - allowed_passthrough_routes: Optional[List[str]] - List of allowed pass through routes for the team.
          *     - allowed_vector_store_indexes: Optional[List[dict]] - List of allowed vector store indexes for the key. Example - [{"index_name": "my-index", "index_permissions": ["write", "read"]}]. If specified, the key will only be able to use these specific vector store indexes. Create index, using `/v1/indexes` endpoint.
-         *     - secret_manager_settings: Optional[dict] - Secret manager settings for the team. [Docs](https://docs.litellm.ai/docs/secret_managers/overview)
+         *     - secret_manager_settings: Optional[dict] - Secret manager settings for the team.
          *     - router_settings: Optional[UpdateRouterConfig] - team-specific router settings. Example - {"model_group_retry_policy": {"gpt-4": {"RateLimitErrorRetries": 5}}}. IF null or {} then no router settings.
          *     - access_group_ids: Optional[List[str]] - List of access group IDs to associate with the team. Access groups define which models the team can access. Example - ["access_group_1", "access_group_2"].
          *     - enforced_file_expires_after: Optional[dict] - Enforced file expiration policy for the team. Keys created under this team will inherit this policy for file uploads. Example - {"anchor": "created_at", "days": 30}.
@@ -16274,26 +16227,26 @@ export interface paths {
          *     - team_id: str - The team id of the user. Required param.
          *     - team_alias: Optional[str] - User defined team alias
          *     - team_member_permissions: Optional[List[str]] - A list of routes that non-admin team members can access. example: ["/key/generate", "/key/update", "/key/delete"]
-         *     - metadata: Optional[dict] - Metadata for team, store information for team. Example metadata = {"team": "core-infra", "app": "app2", "email": "ishaan@berri.ai" }
+         *     - metadata: Optional[dict] - Metadata for team, store information for team. Example metadata = {"team": "core-infra", "app": "app2", "email": "user@example.com" }
          *     - tpm_limit: Optional[int] - The TPM (Tokens Per Minute) limit for this team - all keys with this team_id will have at max this TPM limit
          *     - rpm_limit: Optional[int] - The RPM (Requests Per Minute) limit for this team - all keys associated with this team_id will have at max this RPM limit
          *     - tpd_limit: Optional[int] - The TPD (Tokens Per Day) limit for this team. Batch submissions are charged against it instead of tpm_limit/rpm_limit
          *     - max_budget: Optional[float] - The maximum budget allocated to the team - all keys for this team_id will have at max this max_budget
          *     - soft_budget: Optional[float] - The soft budget threshold for the team. If max_budget is set (either in the request or existing), soft_budget must be strictly lower than max_budget. Can be set independently if max_budget is not set.
-         *     - budget_duration: Optional[str] - The duration of the budget for the team. Doc [here](https://docs.litellm.ai/docs/proxy/team_budgets)
+         *     - budget_duration: Optional[str] - The duration of the budget for the team
          *     - models: Optional[list] - A list of models associated with the team - all keys for this team_id will have at most, these models. If empty, assumes all models are allowed.
          *     - prompts: Optional[List[str]] - List of prompts that the team is allowed to use.
          *     - blocked: bool - Flag indicating if the team is blocked or not - will stop all calls from keys with this team_id.
          *     - tags: Optional[List[str]] - Tags for [tracking spend](https://litellm.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://litellm.vercel.app/docs/proxy/tag_routing).
          *     - organization_id: Optional[str] - The organization id of the team. Default is None. Create via `/organization/new`.
-         *     - model_aliases: Optional[dict] - Model aliases for the team. [Docs](https://docs.litellm.ai/docs/proxy/team_based_routing#create-team-with-model-alias)
+         *     - model_aliases: Optional[dict] - Model aliases for the team.
          *     - model_max_budget: Optional[dict] - Per-model max budget every key on the team inherits unless the key sets its own for that model. Example: {"gpt-4o": {"max_budget": 10, "budget_duration": "1d"}}
-         *     - guardrails: Optional[List[str]] - Guardrails for the team. [Docs](https://docs.litellm.ai/docs/proxy/guardrails)
-         *     - policies: Optional[List[str]] - Policies for the team. [Docs](https://docs.litellm.ai/docs/proxy/guardrails/guardrail_policies)
+         *     - guardrails: Optional[List[str]] - Guardrails for the team.
+         *     - policies: Optional[List[str]] - Policies for the team.
          *     - disable_global_guardrails: Optional[bool] - Whether to disable global guardrails for the team. Proxy admin only.
          *     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - team-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
          *     - team_member_budget: Optional[float] - The maximum budget allocated to an individual team member.
-         *     - team_member_budget_duration: Optional[str] - The duration of the budget for the team member. Doc [here](https://docs.litellm.ai/docs/proxy/team_budgets)
+         *     - team_member_budget_duration: Optional[str] - The duration of the budget for the team member
          *     - team_member_rpm_limit: Optional[int] - The RPM (Requests Per Minute) limit for individual team members.
          *     - team_member_tpm_limit: Optional[int] - The TPM (Tokens Per Minute) limit for individual team members.
          *     - team_member_key_duration: Optional[str] - The duration for a team member's key. e.g. "1d", "1w", "1mo"
@@ -16305,7 +16258,7 @@ export interface paths {
          *     - mcp_rpm_limit: Optional[Dict[str, int]] - Per-MCP-server RPM limit for this team, keyed by MCP server name (alias if set, else the configured name). Example: {"github": 100, "slack": 200}. Applied across all keys for this team.
          *     Example - update team TPM Limit
          *     - allowed_vector_store_indexes: Optional[List[dict]] - List of allowed vector store indexes for the key. Example - [{"index_name": "my-index", "index_permissions": ["write", "read"]}]. If specified, the key will only be able to use these specific vector store indexes. Create index, using `/v1/indexes` endpoint.
-         *     - secret_manager_settings: Optional[dict] - Secret manager settings for the team. [Docs](https://docs.litellm.ai/docs/secret_managers/overview)
+         *     - secret_manager_settings: Optional[dict] - Secret manager settings for the team.
          *     - router_settings: Optional[UpdateRouterConfig] - team-specific router settings. Example - {"model_group_retry_policy": {"gpt-4": {"RateLimitErrorRetries": 5}}}. IF null or {} then no router settings.
          *     - access_group_ids: Optional[List[str]] - List of access group IDs to associate with the team. Access groups define which models the team can access. Example - ["access_group_1", "access_group_2"].
          *     - enforced_file_expires_after: Optional[dict] - Enforced file expiration policy for the team. Keys created under this team will inherit this policy for file uploads. Example - {"anchor": "created_at", "days": 30}.
@@ -16755,7 +16708,6 @@ export interface paths {
          *     1. passthrough_endpoint_router (config.yaml deployments with use_in_pass_through)
          *     2. TINYFISH_API_KEY environment variable
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/tinyfish)
          */
         get: operations["tinyfish_proxy_route_tinyfish__endpoint__get"];
         put?: never;
@@ -16778,7 +16730,6 @@ export interface paths {
          *     1. passthrough_endpoint_router (config.yaml deployments with use_in_pass_through)
          *     2. TINYFISH_API_KEY environment variable
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/tinyfish)
          */
         post: operations["tinyfish_proxy_route_tinyfish__endpoint__post"];
         delete?: never;
@@ -16907,7 +16858,6 @@ export interface paths {
          *     at `/transcribe` and the operation is read from the `X-Amz-Target` header, per the
          *     AWS JSON 1.1 protocol.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/transcribe)
          */
         post: operations["transcribe_sdk_proxy_route_transcribe_post"];
         delete?: never;
@@ -16938,7 +16888,6 @@ export interface paths {
          *     (`transcribestreaming`) uses a separate HTTP/2 event-stream protocol and is not served
          *     by this route.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/transcribe)
          */
         post: operations["transcribe_proxy_route_transcribe__operation__post"];
         delete?: never;
@@ -16956,29 +16905,29 @@ export interface paths {
         };
         /**
          * Typesafe Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/typesafe)
+         * @description
          */
         get: operations["typesafe_proxy_route_typesafe__endpoint__get"];
         /**
          * Typesafe Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/typesafe)
+         * @description
          */
         put: operations["typesafe_proxy_route_typesafe__endpoint__put"];
         /**
          * Typesafe Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/typesafe)
+         * @description
          */
         post: operations["typesafe_proxy_route_typesafe__endpoint__post"];
         /**
          * Typesafe Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/typesafe)
+         * @description
          */
         delete: operations["typesafe_proxy_route_typesafe__endpoint__delete"];
         options?: never;
         head?: never;
         /**
          * Typesafe Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/typesafe)
+         * @description
          */
         patch: operations["typesafe_proxy_route_typesafe__endpoint__patch"];
         trace?: never;
@@ -17467,7 +17416,7 @@ export interface paths {
          *
          *     Example request
          *     ```
-         *     curl -X GET 'http://localhost:4000/user/info?user_id=krrish7%40berri.ai'     --header 'Authorization: Bearer sk-1234'
+         *     curl -X GET 'http://localhost:4000/user/info?user_id=user%40example.com'     --header 'Authorization: Bearer sk-1234'
          *     ```
          */
         get: operations["user_info_user_info_get"];
@@ -17548,7 +17497,7 @@ export interface paths {
          *     - teams: Optional[list] - specify a list of team id's a user belongs to.
          *     - user_email: Optional[str] - Specify a user email.
          *     - send_invite_email: Optional[bool] - Specify if an invite email should be sent.
-         *     - user_role: Optional[str] - Specify a user role - "proxy_admin", "proxy_admin_viewer", "internal_user", "internal_user_viewer", "team", "customer". Info about each role here: `https://github.com/BerriAI/litellm/litellm/proxy/_types.py#L20`
+         *     - user_role: Optional[str] - Specify a user role - "proxy_admin", "proxy_admin_viewer", "internal_user", "internal_user_viewer", "team", "customer". Info about each role here: ``
          *     - max_budget: Optional[float] - Specify max budget for a given user.
          *     - budget_duration: Optional[str] - Budget is reset at the end of specified duration. If not set, budget is never reset. You can set duration as seconds ("30s"), minutes ("30m"), hours ("30h"), days ("30d"), months ("1mo").
          *     - models: Optional[list] - Model_name's a user is allowed to call. (if empty, key is allowed to call all models). Set to ['no-default-models'] to block all model access. Restricting user to only team-based model access.
@@ -17557,19 +17506,19 @@ export interface paths {
          *     - auto_create_key: bool - Default=True. Flag used for returning a key as part of the /user/new response
          *     - aliases: Optional[dict] - Model aliases for the user - [Docs](https://litellm.vercel.app/docs/proxy/virtual_keys#model-aliases)
          *     - config: Optional[dict] - [DEPRECATED PARAM] User-specific config.
-         *     - allowed_cache_controls: Optional[list] - List of allowed cache control values. Example - ["no-cache", "no-store"]. See all values - https://docs.litellm.ai/docs/proxy/caching#turn-on--off-caching-per-request-
+         *     - allowed_cache_controls: Optional[list] - List of allowed cache control values. Example - ["no-cache", "no-store"].
          *     - blocked: Optional[bool] - [Not Implemented Yet] Whether the user is blocked.
          *     - guardrails: Optional[List[str]] - [Not Implemented Yet] List of active guardrails for the user
          *     - policies: Optional[List[str]] - List of policy names to apply to the user. Policies define guardrails, conditions, and inheritance rules.
          *     - permissions: Optional[dict] - [Not Implemented Yet] User-specific permissions, eg. turning off pii masking.
-         *     - metadata: Optional[dict] - Metadata for user, store information for user. Example metadata = {"team": "core-infra", "app": "app2", "email": "ishaan@berri.ai" }
+         *     - metadata: Optional[dict] - Metadata for user, store information for user. Example metadata = {"team": "core-infra", "app": "app2", "email": "user@example.com" }
          *     - max_parallel_requests: Optional[int] - Rate limit a user based on the number of parallel requests. Raises 429 error, if user's parallel requests > x.
-         *     - model_max_budget: Optional[dict] - Model-specific max budget for user. [Docs](https://docs.litellm.ai/docs/proxy/users#add-model-specific-budgets-to-keys)
+         *     - model_max_budget: Optional[dict] - Model-specific max budget for user.
          *     - budget_fallbacks: Optional[Dict[str, List[str]]] - Per-model fallback chain tried in order when that model's own `model_max_budget` is exceeded, e.g. {"gpt-4o": ["gpt-4o-mini"]}.
-         *     - model_rpm_limit: Optional[float] - Model-specific rpm limit for user. [Docs](https://docs.litellm.ai/docs/proxy/users#add-model-specific-limits-to-keys)
+         *     - model_rpm_limit: Optional[float] - Model-specific rpm limit for user.
          *     - mcp_rpm_limit: Optional[dict] - Per-MCP-server rpm limit, keyed by MCP server name {"github": 100, "slack": 200}. Enforced for keys and teams only; values set on a user are stored but not enforced per user.
          *     - tag_rpm_limit: Optional[dict] - Per-request-tag rpm limit, keyed by request tag {"cell-1": 1000, "cell-2": 500}. Enforced for keys only; values set on a user are stored but not enforced per user.
-         *     - model_tpm_limit: Optional[float] - Model-specific tpm limit for user. [Docs](https://docs.litellm.ai/docs/proxy/users#add-model-specific-limits-to-keys)
+         *     - model_tpm_limit: Optional[float] - Model-specific tpm limit for user.
          *     - spend: Optional[float] - Amount spent by user. Default is 0. Will be updated by proxy whenever user is used. You can set duration as seconds ("30s"), minutes ("30m"), hours ("30h"), days ("30d"), months ("1mo").
          *     - agent_id: Optional[str] - The agent id associated with the user.
          *     - team_id: Optional[str] - [DEPRECATED PARAM] The team id of the user. Default is None.
@@ -17687,7 +17636,7 @@ export interface paths {
          *         - user_alias: Optional[str] - A descriptive name for you to know who this user id refers to.
          *         - teams: Optional[list] - specify a list of team id's a user belongs to.
          *         - send_invite_email: Optional[bool] - Specify if an invite email should be sent.
-         *         - user_role: Optional[str] - Specify a user role - "proxy_admin", "proxy_admin_viewer", "internal_user", "internal_user_viewer", "team", "customer". Info about each role here: `https://github.com/BerriAI/litellm/litellm/proxy/_types.py#L20`
+         *         - user_role: Optional[str] - Specify a user role - "proxy_admin", "proxy_admin_viewer", "internal_user", "internal_user_viewer", "team", "customer". Info about each role here: ``
          *         - max_budget: Optional[float] - Specify max budget for a given user.
          *         - budget_duration: Optional[str] - Budget is reset at the end of specified duration. If not set, budget is never reset. You can set duration as seconds ("30s"), minutes ("30m"), hours ("30h"), days ("30d"), months ("1mo").
          *         - models: Optional[list] - Model_name's a user is allowed to call. (if empty, key is allowed to call all models)
@@ -17696,19 +17645,19 @@ export interface paths {
          *         - auto_create_key: bool - Default=True. Flag used for returning a key as part of the /user/new response
          *         - aliases: Optional[dict] - Model aliases for the user - [Docs](https://litellm.vercel.app/docs/proxy/virtual_keys#model-aliases)
          *         - config: Optional[dict] - [DEPRECATED PARAM] User-specific config.
-         *         - allowed_cache_controls: Optional[list] - List of allowed cache control values. Example - ["no-cache", "no-store"]. See all values - https://docs.litellm.ai/docs/proxy/caching#turn-on--off-caching-per-request-
+         *         - allowed_cache_controls: Optional[list] - List of allowed cache control values. Example - ["no-cache", "no-store"].
          *         - blocked: Optional[bool] - [Not Implemented Yet] Whether the user is blocked.
          *         - guardrails: Optional[List[str]] - [Not Implemented Yet] List of active guardrails for the user
          *         - policies: Optional[List[str]] - List of policy names to apply to the user. Policies define guardrails, conditions, and inheritance rules.
          *         - permissions: Optional[dict] - [Not Implemented Yet] User-specific permissions, eg. turning off pii masking.
-         *         - metadata: Optional[dict] - Metadata for user, store information for user. Example metadata = {"team": "core-infra", "app": "app2", "email": "ishaan@berri.ai" }
+         *         - metadata: Optional[dict] - Metadata for user, store information for user. Example metadata = {"team": "core-infra", "app": "app2", "email": "user@example.com" }
          *         - max_parallel_requests: Optional[int] - Rate limit a user based on the number of parallel requests. Raises 429 error, if user's parallel requests > x.
-         *         - model_max_budget: Optional[dict] - Model-specific max budget for user. [Docs](https://docs.litellm.ai/docs/proxy/users#add-model-specific-budgets-to-keys)
+         *         - model_max_budget: Optional[dict] - Model-specific max budget for user.
          *         - budget_fallbacks: Optional[Dict[str, List[str]]] - Per-model fallback chain tried in order when that model's own `model_max_budget` is exceeded, e.g. {"gpt-4o": ["gpt-4o-mini"]}.
-         *         - model_rpm_limit: Optional[float] - Model-specific rpm limit for user. [Docs](https://docs.litellm.ai/docs/proxy/users#add-model-specific-limits-to-keys)
+         *         - model_rpm_limit: Optional[float] - Model-specific rpm limit for user.
          *         - mcp_rpm_limit: Optional[dict] - Per-MCP-server rpm limit, keyed by MCP server name {"github": 100, "slack": 200}. Enforced for keys and teams only; values set on a user are stored but not enforced per user.
          *         - tag_rpm_limit: Optional[dict] - Per-request-tag rpm limit, keyed by request tag {"cell-1": 1000, "cell-2": 500}. Enforced for keys only; values set on a user are stored but not enforced per user.
-         *         - model_tpm_limit: Optional[float] - Model-specific tpm limit for user. [Docs](https://docs.litellm.ai/docs/proxy/users#add-model-specific-limits-to-keys)
+         *         - model_tpm_limit: Optional[float] - Model-specific tpm limit for user.
          *         - spend: Optional[float] - Amount spent by user. Default is 0. Will be updated by proxy whenever user is used. You can set duration as seconds ("30s"), minutes ("30m"), hours ("30h"), days ("30d"), months ("1mo").
          *         - agent_id: Optional[str] - The agent id associated with the user.
          *         - team_id: Optional[str] - [DEPRECATED PARAM] The team id of the user. Default is None.
@@ -19909,7 +19858,7 @@ export interface paths {
         put?: never;
         /**
          * Anthropic Response
-         * @description Use `{PROXY_BASE_URL}/anthropic/v1/messages` instead - [Docs](https://docs.litellm.ai/docs/pass_through/anthropic_completion).
+         * @description Use `{PROXY_BASE_URL}/anthropic/v1/messages` instead
          *
          *     This was a BETA endpoint that calls 100+ LLMs in the anthropic format.
          */
@@ -22114,7 +22063,6 @@ export interface paths {
          * List Guardrails V2
          * @description List the guardrails that are available in the database using GuardrailRegistry
          *
-         *     👉 [Guardrail docs](https://docs.litellm.ai/docs/proxy/guardrails/quick_start)
          *
          *     Example Request:
          *     ```bash
@@ -22919,28 +22867,24 @@ export interface paths {
          * Vertex Proxy Route
          * @description Call LiteLLM proxy via Vertex AI SDK.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/vertex_ai)
          */
         get: operations["vertex_proxy_route_vertex_ai__endpoint__get"];
         /**
          * Vertex Proxy Route
          * @description Call LiteLLM proxy via Vertex AI SDK.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/vertex_ai)
          */
         put: operations["vertex_proxy_route_vertex_ai__endpoint__put"];
         /**
          * Vertex Proxy Route
          * @description Call LiteLLM proxy via Vertex AI SDK.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/vertex_ai)
          */
         post: operations["vertex_proxy_route_vertex_ai__endpoint__post"];
         /**
          * Vertex Proxy Route
          * @description Call LiteLLM proxy via Vertex AI SDK.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/vertex_ai)
          */
         delete: operations["vertex_proxy_route_vertex_ai__endpoint__delete"];
         options?: never;
@@ -22949,7 +22893,6 @@ export interface paths {
          * Vertex Proxy Route
          * @description Call LiteLLM proxy via Vertex AI SDK.
          *
-         *     [Docs](https://docs.litellm.ai/docs/pass_through/vertex_ai)
          */
         patch: operations["vertex_proxy_route_vertex_ai__endpoint__patch"];
         trace?: never;
@@ -23204,29 +23147,29 @@ export interface paths {
         };
         /**
          * Vllm Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/vllm)
+         * @description
          */
         get: operations["vllm_proxy_route_vllm__endpoint__get"];
         /**
          * Vllm Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/vllm)
+         * @description
          */
         put: operations["vllm_proxy_route_vllm__endpoint__put"];
         /**
          * Vllm Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/vllm)
+         * @description
          */
         post: operations["vllm_proxy_route_vllm__endpoint__post"];
         /**
          * Vllm Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/vllm)
+         * @description
          */
         delete: operations["vllm_proxy_route_vllm__endpoint__delete"];
         options?: never;
         head?: never;
         /**
          * Vllm Proxy Route
-         * @description [Docs](https://docs.litellm.ai/docs/pass_through/vllm)
+         * @description
          */
         patch: operations["vllm_proxy_route_vllm__endpoint__patch"];
         trace?: never;
@@ -28167,7 +28110,7 @@ export interface components {
             coordination_redis?: components["schemas"]["CoordinationRedisParams"] | null;
             /**
              * Custom Auth
-             * @description override user_api_key_auth with your own auth script - https://docs.litellm.ai/docs/proxy/virtual_keys#custom-auth
+             * @description override user_api_key_auth with your own auth script
              */
             custom_auth?: string | null;
             /**
@@ -28471,7 +28414,7 @@ export interface components {
             otel?: boolean | null;
             /**
              * Pass Through Endpoints
-             * @description Set-up pass-through endpoints for provider-specific endpoints. Docs - https://docs.litellm.ai/docs/proxy/pass_through
+             * @description Set-up pass-through endpoints for provider-specific endpoints.
              */
             pass_through_endpoints?: components["schemas"]["PassThroughGenericEndpoint"][] | null;
             /**
@@ -41510,7 +41453,6 @@ export interface components {
          * @description Use this to set a custom number of retries per exception type
          *     If RateLimitErrorRetries = 3, then 3 retries will be made for RateLimitError
          *     Mapping of Exception type to number of retries
-         *     https://docs.litellm.ai/docs/exception_mapping
          */
         RetryPolicy: {
             /** Authenticationerrorretries */

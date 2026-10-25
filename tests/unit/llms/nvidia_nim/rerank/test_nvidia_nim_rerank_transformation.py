@@ -1,5 +1,5 @@
 """
-Regression tests for https://github.com/BerriAI/litellm/issues/34165
+
 
 The native /v1/ranking endpoint accepts only model, query, passages, and
 truncate. Two defects are covered here:

@@ -5,7 +5,7 @@ The cache intentionally does NOT close clients on eviction because evicted
 clients may still be referenced by in-flight requests.  Closing them eagerly
 causes ``RuntimeError: Cannot send a request, as the client has been closed.``
 
-See: https://github.com/BerriAI/litellm/pull/22247
+
 """
 
 import asyncio
@@ -116,7 +116,7 @@ async def test_eviction_no_unawaited_coroutine_warning():
     Evicting an async client from LLMClientCache must not produce
     'coroutine was never awaited' warnings.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/22128
+
     """
     cache = LLMClientCache(max_size_in_memory=2)
 

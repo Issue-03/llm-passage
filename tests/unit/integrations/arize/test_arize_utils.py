@@ -284,7 +284,7 @@ def test_arize_set_attributes_responses_api():
 
 def test_set_usage_outputs_pydantic_completion_usage():
     """
-    Regression test for https://github.com/BerriAI/litellm/issues/13672
+
 
     `_set_usage_outputs` previously called `usage.get(...)` which crashes when
     `usage` is a plain Pydantic model (e.g. openai.types.completion_usage.CompletionUsage)

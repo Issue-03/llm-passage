@@ -1,6 +1,6 @@
 """Itemized cache costs in the logged cost breakdown for the OpenAI Responses API.
 
-Regression guard for https://github.com/BerriAI/litellm/issues/34309: the
+Regression test.
 breakdown block derived its cache token counts only from the Anthropic-style
 top-level ``cache_read_input_tokens`` / ``cache_creation_input_tokens``. OpenAI's
 Responses API reports them under ``input_tokens_details.{cached_tokens,

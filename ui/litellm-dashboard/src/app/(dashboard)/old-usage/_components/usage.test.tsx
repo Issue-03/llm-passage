@@ -100,16 +100,15 @@ describe("old usage page", () => {
 
       expect(await screen.findByText("Database Query Limit Reached")).toBeInTheDocument();
       expect(screen.getByText(/SpendLogs in DB has/)).toHaveTextContent("2500000");
-      expect(screen.getByText(/Please follow our guide to view usage when SpendLogs has more than 1M rows/i));
+      expect(screen.getByText(/Usage charts are skipped when SpendLogs has more than 1M rows/i)).toBeInTheDocument();
       expect(screen.queryByRole("tab", { name: "All Up" })).not.toBeInTheDocument();
     });
 
-    it("links to the cost tracking guide in a new tab", async () => {
+    it("does not link out to an external usage guide", async () => {
       renderUsage();
 
-      const link = await screen.findByRole("link", { name: "View Usage Guide" });
-      expect(link).toHaveAttribute("href", "https://docs.litellm.ai/docs/proxy/cost_tracking");
-      expect(link).toHaveAttribute("target", "_blank");
+      expect(await screen.findByText("Database Query Limit Reached")).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "View Usage Guide" })).not.toBeInTheDocument();
     });
 
     it("skips every expensive usage query", async () => {

@@ -1,5 +1,5 @@
 """
-Regression tests for https://github.com/BerriAI/litellm/issues/26153
+
 
 ``stream_chunk_builder`` used to leave ``usage.server_tool_use`` as a plain
 ``dict`` when reconstructing a streaming response. Downstream cost-calculation

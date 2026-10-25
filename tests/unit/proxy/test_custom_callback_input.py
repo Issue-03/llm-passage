@@ -38,7 +38,7 @@ from litellm.types.utils import LiteLLMCommonStrings
 
 class CompletionCustomHandler(
     CustomLogger
-):  # https://docs.litellm.ai/docs/observability/custom_callback#callback-class
+):  #
     """
     The set of expected inputs to a custom handler for a
     """

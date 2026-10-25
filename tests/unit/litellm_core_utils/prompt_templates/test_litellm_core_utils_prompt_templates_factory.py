@@ -659,7 +659,7 @@ def test_unpack_defs_resolves_nested_ref_inside_anyof_items():
 
 def test_convert_gemini_messages():
     """
-    Handle 'content' not being present in the message - https://github.com/BerriAI/litellm/issues/13169
+    Handle 'content' not being present in the message
     """
     from litellm.litellm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_result,
@@ -692,7 +692,7 @@ def test_convert_gemini_messages():
 def test_convert_gemini_tool_call_result_with_image_url():
     """
     Test that image_url content type in tool results is handled correctly for Gemini.
-    Fixes: https://github.com/BerriAI/litellm/issues/18187
+
     """
     from litellm.litellm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_result,
@@ -750,7 +750,7 @@ def test_convert_gemini_tool_call_result_with_anthropic_image_block():
     """
     Test that Anthropic-native image blocks in tool_result list content are
     converted to Gemini inline_data instead of being silently dropped.
-    Fixes: https://github.com/BerriAI/litellm/issues/23712
+
     """
     tiny_png_b64 = base64.b64encode(b"PNG_PLACEHOLDER").decode()
 
@@ -796,7 +796,7 @@ def test_convert_gemini_tool_call_result_with_multiple_anthropic_image_blocks():
     Test that multiple Anthropic-native image blocks in a single tool_result
     are all preserved as separate inline_data parts instead of only the last
     one being kept.
-    Fixes: https://github.com/BerriAI/litellm/issues/23712
+
     """
     png_b64 = base64.b64encode(b"PNG_PLACEHOLDER").decode()
     jpeg_b64 = base64.b64encode(b"JPEG_PLACEHOLDER").decode()
@@ -851,7 +851,7 @@ def test_convert_gemini_tool_call_result_with_data_url_string():
     """
     Test that a data-URL string in tool_result content is converted to
     Gemini inline_data instead of being passed as plain text.
-    Fixes: https://github.com/BerriAI/litellm/issues/23712
+
     """
     tiny_png_b64 = base64.b64encode(b"PNG_PLACEHOLDER").decode()
 
@@ -1841,7 +1841,7 @@ def test_anthropic_messages_pt_server_tool_use_passthrough():
     These are Anthropic-native content types used for tool search functionality
     that need to be preserved when reconstructing multi-turn conversations.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/XXXXX
+
     """
     from litellm.litellm_core_utils.prompt_templates.factory import (
         anthropic_messages_pt,
@@ -2047,7 +2047,7 @@ def test_anthropic_messages_pt_file_block_cache_control_with_explicit_provider()
     """
     Test that cache_control on file-type content blocks is preserved
     when translating to Anthropic message format.
-    Regression test for https://github.com/BerriAI/litellm/issues/23873
+
     """
 
     pdf_b64 = base64.b64encode(b"%PDF-1.4 fake pdf content").decode()
@@ -2178,7 +2178,7 @@ _BEDROCK_TOOL_USE_ID_RE = re.compile(r"^[a-zA-Z0-9_.:-]{1,64}$")
 )
 def test_bedrock_tool_use_id_is_sanitized_consistently_for_invoke_and_result(tool_call_id):
     """
-    Regression test for https://github.com/BerriAI/litellm/issues/34239: client-minted
+ client-minted
     tool_call ids longer than 64 chars or with chars outside [a-zA-Z0-9_.:-] made Bedrock
     return a 400. The invoke and result paths must produce the same valid toolUseId so the
     toolUse/toolResult pair still correlates.
@@ -2345,7 +2345,7 @@ def test_bedrock_tool_call_invoke_non_dict_arguments():
 
 def test_bedrock_tool_call_invoke_malformed_json_does_not_raise():
     """
-    Regression for https://github.com/BerriAI/litellm/issues/18667.
+    Regression test.
 
     When the model emits malformed JSON in tool-call arguments (here a
     missing comma between keys), replaying that history must NOT raise
@@ -2827,7 +2827,7 @@ def test_anthropic_messages_pt_file_block_preserves_cache_control():
     """
     Test that cache_control is preserved on file-type content blocks
     when translated to Anthropic document params.
-    Regression test for https://github.com/BerriAI/litellm/issues/23873
+
     """
     from litellm.litellm_core_utils.prompt_templates.factory import (
         anthropic_messages_pt,
@@ -2882,7 +2882,7 @@ def test_add_cache_point_tool_block_passes_ttl_for_claude_4_5(monkeypatch):
     while system blocks can have ttl="1h", violating Bedrock's non-increasing
     TTL ordering constraint (tools -> system -> messages).
 
-    Ref: https://github.com/BerriAI/litellm/issues/XXXXX
+
 
     Forces the bundled local cost map so ttl eligibility (driven by
     `cache_creation_input_token_cost_above_1hr` in litellm.model_cost) reads
@@ -3245,7 +3245,7 @@ def _collect_cache_points(blocks):
 )
 def test_bedrock_converse_message_level_cache_point_preserves_ttl(messages):
     """
-    Regression for https://github.com/BerriAI/litellm/issues/32154: message-level
+    Regression for message-level
     cache_control ttl was silently dropped because the message-level
     _get_cache_point_block call sites never passed model=, so multi-turn prefixes
     fell back to the 5m default while the system prompt kept 1h, churning the
@@ -3786,7 +3786,7 @@ def test_convert_to_anthropic_tool_result_keeps_tool_reference_blocks():
 
 def test_convert_gemini_tool_call_result_answers_tool_reference_only_result():
     """Every Gemini function call needs a function response, even when the tool result carries no text.
-    Fixes: https://github.com/BerriAI/litellm/issues/37462
+
     """
     result = convert_to_gemini_tool_call_result(
         message=ChatCompletionToolMessage(

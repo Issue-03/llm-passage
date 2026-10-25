@@ -4,7 +4,7 @@ Unit tests for _extract_base64_data and extract_images_from_message functions.
 These tests verify that base64 image data is correctly extracted from data URLs,
 which fixes the Ollama error "illegal base64 data at input byte 4".
 
-Related issue: https://github.com/BerriAI/litellm/issues/18338
+
 """
 
 import pytest

@@ -16,19 +16,3 @@ export const labelWithHint = (label: React.ReactNode, hint: React.ReactNode): Re
     </Tooltip>
   </>
 );
-
-export const labelWithDocsHint = (label: React.ReactNode, hint: React.ReactNode, href: string): React.ReactNode => (
-  <>
-    {label}
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <a href={href} target="_blank" rel="noopener noreferrer" onClick={(event) => event.stopPropagation()}>
-            <CircleHelp className={hintIconClassName} />
-          </a>
-        }
-      />
-      <TooltipContent>{hint}</TooltipContent>
-    </Tooltip>
-  </>
-);

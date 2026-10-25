@@ -1891,7 +1891,7 @@ async def test_streamable_http_session_manager_is_stateless():
     assert session_manager_stateless.stateless is True, (
         "session_manager_stateless must be initialized with stateless=True. "
         "stateless=False breaks MCP clients that don't manage session IDs. "
-        "See: https://github.com/BerriAI/litellm/issues/20242"
+        ""
     )
 
     # The stateful session manager must be stateful to support progress notifications

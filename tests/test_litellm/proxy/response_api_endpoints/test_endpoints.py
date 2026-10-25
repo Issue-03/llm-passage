@@ -2249,7 +2249,7 @@ def _sse_data_frames(text: str) -> list[str]:
 
 
 class TestGuardrailBlockedResponsesUsage:
-    """Regression tests for https://github.com/BerriAI/litellm/issues/36880.
+    """
 
     The ModifyResponseException handler in responses_api hardcoded the synthetic
     blocked reply's usage to zeros, discarding the real token counts the blocked

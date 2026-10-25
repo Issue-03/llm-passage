@@ -220,7 +220,7 @@ class XAIChatConfig(OpenAIGPTConfig):
         litellm_params: dict,
         headers: dict,
     ) -> dict:
-        """Handle https://github.com/BerriAI/litellm/issues/9720"""
+        """Handle"""
         if "web_search_options" in optional_params:
             verbose_logger.warning(
                 "XAI no longer supports web search on /chat/completions (Live Search is deprecated). "

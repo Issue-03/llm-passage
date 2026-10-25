@@ -391,7 +391,7 @@ async def new_organization(
     - blocked: *bool* - Flag indicating if the org is blocked or not - will stop all calls from keys with this org_id.
     - tags: *Optional[List[str]]* - Tags for [tracking spend](https://litellm.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://litellm.vercel.app/docs/proxy/tag_routing).
     - organization_id: *Optional[str]* - The organization id of the team. Default is None. Create via `/organization/new`.
-    - model_aliases: Optional[dict] - Model aliases for the team. [Docs](https://docs.litellm.ai/docs/proxy/team_based_routing#create-team-with-model-alias)
+    - model_aliases: Optional[dict] - Model aliases for the team.
     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - organization-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"]}. IF null or {} then no object permission.
     - allowed_models: Optional[List[str]] - List of models the organization is allowed to access. If not set, defaults to the models field.
     - temp_budget_increase: *Optional[float]* - Stored on the org budget row but only enforced for team member budgets today.
@@ -1278,7 +1278,7 @@ async def organization_member_add(
         "organization_id": "45e3e396-ee08-4a61-a88e-16b3ce7e0849",
         "member": {
             "role": "internal_user",
-            "user_id": "krrish247652@berri.ai"
+            "user_id": "user@example.com"
         },
         "max_budget_in_organization": 100.0
     }'

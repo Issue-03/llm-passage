@@ -88,7 +88,7 @@ def test_calculate_usage():
     """
     Do not include cache_creation_input_tokens in the prompt_tokens
 
-    Fixes https://github.com/BerriAI/litellm/issues/9812
+
     """
     config = AnthropicConfig()
 
@@ -499,7 +499,7 @@ def test_calculate_usage_nulls(usage_object, expected_usage):
     """
     Correctly deal with null values in usage object
 
-    Fixes https://github.com/BerriAI/litellm/issues/11920
+
     """
     config = AnthropicConfig()
 
@@ -517,7 +517,7 @@ def test_calculate_usage_server_tool_null(usage_object):
     """
     Correctly deal with null values in usage object
 
-    Fixes https://github.com/BerriAI/litellm/issues/11920
+
     """
     config = AnthropicConfig()
 
@@ -677,7 +677,7 @@ def test_web_search_tool_result_extraction():
     """
     Test that web_search_tool_result blocks are correctly extracted and preserved.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/17737
+
     - web_search_tool_result was being dropped entirely from the response
     - This caused multi-turn conversations to fail because the web search results
       were not available for reconstruction
@@ -1146,7 +1146,7 @@ def test_anthropic_beta_header_merging_with_output_format():
     Test that anthropic-beta headers from extra_headers are merged with
     output_format beta headers instead of being overridden.
 
-    This is a regression test for: https://github.com/BerriAI/litellm/issues/...
+
     When using response_format with a Pydantic model AND extra_headers with
     anthropic-beta (e.g., for context-1m extension), both beta headers should
     be present in the final request.
@@ -2403,7 +2403,7 @@ def test_get_max_tokens_for_model_claude_35():
     Test that get_max_tokens_for_model returns correct value for Claude 3.5 models.
     Claude 3.5 models have max_output_tokens of 8192.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/8835
+
     """
     config = AnthropicConfig()
 
@@ -2442,7 +2442,7 @@ def test_get_config_with_model_uses_dynamic_max_tokens():
     """
     Test that get_config returns dynamic max_tokens based on model.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/8835
+
     """
 
     def _mock_get_max_tokens(model):
@@ -2610,7 +2610,7 @@ def test_calculate_usage_completion_tokens_details_always_populated():
     Test that completion_tokens_details is always populated in Usage object,
     not just when there's reasoning_content.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/18772
+
     Bug: completion_tokens_details was None for regular Claude responses without reasoning
     """
     config = AnthropicConfig()
@@ -2636,7 +2636,7 @@ def test_calculate_usage_completion_tokens_details_with_reasoning():
     Test that completion_tokens_details correctly splits text_tokens and reasoning_tokens
     when reasoning_content is present.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/18772
+
     """
     config = AnthropicConfig()
 
@@ -3284,7 +3284,6 @@ def test_code_execution_tool_results_extraction():
     text_editor_code_execution_tool_result) are properly extracted and exposed
     in provider_specific_fields.
 
-    Related to: https://github.com/BerriAI/litellm/issues/xxxxx
     """
     import httpx
 
@@ -4509,7 +4508,7 @@ def test_map_tool_helper_empty_parameters_get_default():
 def test_extract_response_content_thinking_block_null_thinking():
     """
     Test that thinking blocks are not dropped when the 'thinking' field is null
-    or missing. Regression test for https://github.com/BerriAI/litellm/issues/24026
+    or missing.
     """
     config = AnthropicConfig()
 
@@ -5475,7 +5474,6 @@ def test_sanitize_tool_names_in_request_no_tools_is_noop():
 # servers (legacy `definitions`) or OpenAPI-derived gateways like AWS
 # AgentCore (`components.schemas`) used to silently lose their def blocks
 # while keeping dangling `$ref`s, causing upstream 400s. See
-# https://github.com/BerriAI/litellm/issues/26692.
 # -----------------------------------------------------------------------------
 
 

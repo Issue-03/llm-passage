@@ -117,7 +117,7 @@ describe("provider_info_helpers", () => {
     });
 
     it("should resolve the zai (Z.AI) provider value to the Z.AI display name", () => {
-      // Regression test for https://github.com/BerriAI/litellm/issues/25482 —
+      // Regression test —
       // the backend already returns `zai` from /public/providers and the docs
       // have a dedicated page, but the UI dropdown was missing an entry, so
       // `getProviderLogoAndName("zai")` previously returned the raw value as

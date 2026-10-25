@@ -1034,7 +1034,7 @@ def test_partial_json_chunk_accumulation():
     """
     Test that partial JSON chunks are accumulated correctly.
 
-    This tests the fix for https://github.com/BerriAI/litellm/issues/17473
+    Regression test.
     where network fragmentation can cause SSE data to arrive in partial chunks.
     """
     iterator = ModelResponseIterator(
@@ -1252,7 +1252,7 @@ def test_web_search_tool_result_no_extra_tool_calls():
     """
     Test that web_search_tool_result blocks don't emit tool call chunks.
 
-    This tests the fix for https://github.com/BerriAI/litellm/issues/17254
+    Regression test.
     where streaming with Anthropic web search was adding trailing {} to tool call arguments.
 
     The issue was that web_search_tool_result blocks have input_json_delta events with {}
@@ -1447,7 +1447,7 @@ def test_web_search_tool_result_captured_in_provider_specific_fields():
     """
     Test that web_search_tool_result content is captured in provider_specific_fields.
 
-    This tests the fix for https://github.com/BerriAI/litellm/issues/17737
+    Regression test.
     where streaming with Anthropic web search wasn't capturing web_search_tool_result
     blocks, causing multi-turn conversations to fail.
 
@@ -1550,7 +1550,7 @@ def test_web_fetch_tool_result_captured_in_provider_specific_fields():
     """
     Test that web_fetch_tool_result content is captured in provider_specific_fields.
 
-    This tests the fix for https://github.com/BerriAI/litellm/issues/18137
+    Regression test.
     where streaming with Anthropic web fetch wasn't capturing web_fetch_tool_result
     blocks, causing multi-turn conversations to fail.
 
@@ -1655,7 +1655,7 @@ def test_web_fetch_tool_result_no_extra_tool_calls():
     """
     Test that web_fetch_tool_result blocks don't emit tool call chunks.
 
-    This tests the fix for https://github.com/BerriAI/litellm/issues/18137
+    Regression test.
     where streaming with Anthropic web fetch was causing issues with tool call arguments.
 
     The issue was that web_fetch_tool_result blocks have input_json_delta events with {}

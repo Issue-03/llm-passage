@@ -1,7 +1,7 @@
 """
 Tests for is_tool_name_prefixed with known_server_prefixes parameter.
 
-Verifies fix for https://github.com/BerriAI/litellm/issues/25081
+Regression test.
 """
 
 import pytest

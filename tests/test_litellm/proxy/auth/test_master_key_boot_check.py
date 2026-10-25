@@ -13,7 +13,6 @@ from litellm.proxy.auth.master_key_boot_check import (
     MASTER_KEY_ENV_VAR,
     MIGRATE_FROM_MASTER_KEY_ENV_VAR,
     PRINT_NEW_MASTER_KEY_COMMAND,
-    ROTATION_DOCS_URL,
     WEAK_OR_UNSET_MASTER_KEY_OVERRIDE_ENV_VAR,
     WEAK_OR_UNSET_MASTER_KEY_OVERRIDE_SETTING,
     ConfigFileSource,
@@ -292,9 +291,8 @@ def test_migration_steps_appear_only_when_the_database_needs_them():
 
     assert f"{MIGRATE_FROM_MASTER_KEY_ENV_VAR}=sk-1234" in with_migration
     assert "holds 3 value(s) encrypted with this master key" in with_migration
-    assert ROTATION_DOCS_URL in with_migration
+    assert "can be removed" in with_migration
     assert MIGRATE_FROM_MASTER_KEY_ENV_VAR not in without_migration
-    assert ROTATION_DOCS_URL not in without_migration
 
 
 def test_unreadable_database_is_reported_as_unchecked_rather_than_counted():

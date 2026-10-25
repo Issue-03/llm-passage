@@ -116,7 +116,7 @@ def _extract_cache_read_input_tokens(usage_obj) -> int:
     1. Top-level cache_read_input_tokens (Anthropic format)
     2. prompt_tokens_details.cached_tokens (Gemini, OpenAI format)
 
-    See: https://github.com/BerriAI/litellm/issues/18520
+
 
     Args:
         usage_obj: Usage object from LLM response

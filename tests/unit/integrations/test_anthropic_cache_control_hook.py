@@ -725,7 +725,7 @@ async def test_anthropic_cache_control_hook_no_op(monkeypatch: pytest.MonkeyPatc
 async def test_anthropic_cache_control_hook_multiple_content_items_last_only(monkeypatch: pytest.MonkeyPatch):
     """
     Test that cache_control is only applied to the last content item in a list, not all items.
-    This verifies the fix for https://github.com/BerriAI/litellm/issues/15696
+    Regression test.
     """
     with patch.dict(
         os.environ,

@@ -23,7 +23,7 @@ class TestGoogleAIStudioFilesTransformation:
         Test that transform_retrieve_file_request returns empty params dict
         to avoid 'Content-Type' query parameter error
 
-        Regression test for: https://github.com/BerriAI/litellm/issues/XXX
+
         When retrieving a file, the API was incorrectly trying to pass Content-Type
         as a query parameter, which Gemini API rejected.
         """

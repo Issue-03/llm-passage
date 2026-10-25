@@ -9,7 +9,6 @@ from litellm.caching.caching import DualCache
 from litellm.exceptions import InternalServerError
 from litellm.integrations.custom_guardrail import CustomGuardrail
 from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.bug_report import ISSUE_URL_BASE
 from litellm.proxy._types import ProxyErrorTypes, UserAPIKeyAuth
 from litellm.proxy.utils import PrismaClient, ProxyLogging, handle_exception_on_proxy
 from litellm.types.guardrails import GuardrailEventHooks
@@ -18,6 +17,16 @@ from litellm.types.guardrails import GuardrailEventHooks
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from litellm.proxy.utils import get_custom_url, join_paths
+
+ISSUE_URL_BASE = "https://issues.example.com/new"
+
+
+@pytest.fixture(autouse=True)
+def _bug_report_issue_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bug report links are off unless an issue URL is configured; turn them on for these tests."""
+    monkeypatch.setenv("LITELLM_BUG_REPORT_ISSUE_URL", "https://issues.example.com/new")
+
+
 
 
 def test_get_custom_url(monkeypatch):
@@ -1334,7 +1343,7 @@ def test_create_model_info_response_omits_non_string_mode():
 
 class TestPostCallFailureHookLLMExceptionAlerting:
     """The llm_exceptions alert is for infra / LLM-API failures, not user
-    errors (https://github.com/BerriAI/litellm/issues/3395). Already-normalized
+    errors. Already-normalized
     client errors must be excluded so a guardrail content-policy block never
     pages on-call. 5xx proxy errors still alert."""
 

@@ -568,7 +568,7 @@ class TestTranslateMessagesToResponsesInput:
         assert "id" not in result[0]
 
     def test_thinking_block_with_encrypted_signature_replays_the_encrypted_content(self):
-        """Regression for https://github.com/BerriAI/litellm/issues/40288 (inbound fault site)."""
+        """Regression for (inbound fault site)."""
         messages = [
             {
                 "role": "assistant",
@@ -1199,7 +1199,7 @@ class TestTranslateRequestBroaderCoverage:
         assert kwargs["prompt_cache_key"] == "session-42"
 
     def test_metadata_claude_code_sessions_get_distinct_prompt_cache_keys(self):
-        """BerriAI/litellm#39145: the first 64 chars of Claude Code's user_id are the per-install device_id."""
+        """upstream #39145: the first 64 chars of Claude Code's user_id are the per-install device_id."""
         keys = tuple(
             _ADAPTER.translate_request(
                 _make_request(
@@ -1481,7 +1481,7 @@ class TestTranslateResponse:
         assert [block["thinking"] for block in result["content"]] == ["Part one.\n\nPart two."]
 
     def test_encrypted_content_rides_the_thinking_signature(self):
-        """Regression for https://github.com/BerriAI/litellm/issues/40288 (outbound fault site)."""
+        """Regression for (outbound fault site)."""
         reasoning = _make_reasoning_item(["Part one."], item_id="rs_abc123", encrypted_content=_ENCRYPTED_REASONING)
         response = _make_mock_response(output=[reasoning])
         result: Any = _ADAPTER.translate_response(response)
@@ -1517,7 +1517,7 @@ class TestTranslateResponse:
         assert result["content"][0]["signature"] == encrypted_reasoning_signature(_ENCRYPTED_REASONING)
 
     def test_reasoning_item_round_trip_is_byte_stable(self):
-        """Regression for https://github.com/BerriAI/litellm/issues/40288.
+        """Regression test.
 
         The reasoning item the next turn replays must be the one OpenAI produced, with its
         encrypted reasoning intact, and identical on every later turn so the prompt cache

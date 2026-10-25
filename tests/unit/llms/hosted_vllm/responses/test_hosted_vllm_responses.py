@@ -1,7 +1,7 @@
 """
 Tests for hosted_vllm responses API support.
 
-Regression test for: https://github.com/BerriAI/litellm/issues
+
 Bug: client.responses.create() raised TypeError: 'NoneType' object is not a mapping
 when extra_body=None was passed through the responses→completion pipeline for
 hosted_vllm (and any OpenAI-compatible provider using add_provider_specific_params_to_optional_params).

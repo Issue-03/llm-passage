@@ -227,7 +227,7 @@ def extract_and_raise_litellm_exception(
 
     Enables raising the special errors raised by litellm, eg. ContextWindowExceededError.
 
-    Relevant Issue: https://github.com/BerriAI/litellm/issues/7259
+
     """
     pattern: Final = r"litellm\.\w+Error"
     match: Final = re.search(pattern, error_str)
@@ -293,7 +293,7 @@ def _map_openai_exception(
 
     if message is not None and isinstance(
         message, str
-    ):  # done to prevent user-confusion. Relevant issue - https://github.com/BerriAI/litellm/issues/1414
+    ):  # done to prevent user-confusion.
         message = message.replace("OPENAI", custom_llm_provider.upper())
         message = message.replace(
             "openai.OpenAIError",
@@ -360,7 +360,7 @@ def _map_openai_exception(
             "     enable_pre_call_checks: true\n"
             "     optional_pre_call_checks:\n"
             "       - encrypted_content_affinity\n\n"
-            "   Learn more: https://docs.litellm.ai/docs/response_api#encrypted-content-affinity-multi-region-load-balancing"
+            ""
         )
         raise BadRequestError(
             message=helpful_message,
@@ -1185,7 +1185,7 @@ def _map_vertex_exception(
             response=httpx.Response(
                 status_code=500,
                 content=str(original_exception),
-                request=httpx.Request(method="completion", url="https://github.com/BerriAI/litellm"),
+                request=httpx.Request(method="completion", url="http://localhost"),
             ),
             litellm_debug_info=extra_information,
         )
@@ -1346,7 +1346,7 @@ def _map_vertex_exception(
                 response=httpx.Response(
                     status_code=500,
                     content=str(original_exception),
-                    request=httpx.Request(method="completion", url="https://github.com/BerriAI/litellm"),
+                    request=httpx.Request(method="completion", url="http://localhost"),
                 ),
             )
         if original_exception.status_code == 502:
@@ -2009,7 +2009,7 @@ def _map_azure_exception(
             "     enable_pre_call_checks: true\n"
             "     optional_pre_call_checks:\n"
             "       - encrypted_content_affinity\n\n"
-            "   Learn more: https://docs.litellm.ai/docs/response_api#encrypted-content-affinity-multi-region-load-balancing"
+            ""
         )
         raise BadRequestError(
             message=helpful_message,
@@ -2235,7 +2235,7 @@ def _response_or_stub(original_exception: _ProviderHTTPException, status_code: i
     if response is not None:
         return response
     return httpx.Response(
-        status_code=status_code, request=httpx.Request(method="POST", url="https://docs.litellm.ai/docs")
+        status_code=status_code, request=httpx.Request(method="POST", url="http://localhost")
     )
 
 
@@ -2369,9 +2369,6 @@ def exception_type(
     mappable_exception: Final[_ProviderHTTPException] = cast("_ProviderHTTPException", original_exception)
     if litellm.suppress_debug_info is False:
         print()  # noqa: T201
-        print(  # noqa: T201
-            "\033[1;31mGive Feedback / Get Help: https://github.com/BerriAI/litellm/issues/new\033[0m"
-        )
         print(  # noqa: T201
             "LiteLLM.Info: If you need to debug this error, use `litellm._turn_on_debug()'."
         )
@@ -2666,7 +2663,7 @@ def exception_type(
             )
         else:  # ensure generic errors always return APIConnectionError=
             """
-            For unmapped exceptions - raise the exception with traceback - https://github.com/BerriAI/litellm/issues/4201
+            For unmapped exceptions - raise the exception with traceback
             """
             exception_mapping_worked = True
             _map_exception_by_status(

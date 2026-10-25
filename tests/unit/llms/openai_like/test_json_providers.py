@@ -98,7 +98,7 @@ class TestJSONProviderLoader:
 
     def test_tool_params_excluded_when_function_calling_not_supported(self):
         """Test that tool-related params are excluded for models that don't support
-        function calling. Regression test for https://github.com/BerriAI/litellm/issues/21125
+        function calling.
         """
         from litellm.llms.openai_like.dynamic_config import create_config_class
         from litellm.llms.openai_like.json_loader import JSONProviderRegistry

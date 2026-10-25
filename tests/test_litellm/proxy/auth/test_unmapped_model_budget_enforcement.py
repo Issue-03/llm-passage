@@ -4,7 +4,7 @@ Test that models not in the cost map do NOT bypass budget enforcement.
 Regression test for the bug where unmapped models got fallback costs of 0,
 causing _is_model_cost_zero() to return True and skip all budget checks.
 
-See: https://github.com/BerriAI/litellm/issues/24770
+
 """
 
 import copy

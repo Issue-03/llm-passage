@@ -1097,7 +1097,7 @@ async def test_health_services_endpoint_datadog_llm_observability():
     Verify that 'datadog_llm_observability' is accepted as a valid service
     by the /health/services endpoint and does not raise a 400 error.
 
-    Regression test for: https://github.com/BerriAI/litellm/issues/XXXX
+
     The service was missing from the allowed services validation list.
     """
     from litellm.proxy.health_endpoints._health_endpoints import (
@@ -2629,7 +2629,7 @@ async def test_health_readiness_returns_503_when_db_disconnected():
 @pytest.mark.asyncio
 async def test_health_readiness_returns_200_when_db_down_and_allow_requests_on_db_unavailable():
     """
-    Regression test for https://github.com/BerriAI/litellm/issues/34934.
+
 
     allow_requests_on_db_unavailable keeps the proxy serving through a DB
     outage, so the readiness probe must keep the pod in rotation (200) and

@@ -106,16 +106,9 @@ const PromptCompressionTab: React.FC<PromptCompressionTabProps> = ({ accessToken
         </CardHeader>
         <CardContent>
           <p className="mb-4 text-sm text-muted-foreground">
-            Headroom is a native EmbRouter guardrail that compresses your prompts before they reach the model, so you pay
-            for fewer input tokens. The tokens it removes are priced and shown on the Usage tab as compression savings.{" "}
-            <a
-              href="https://docs.litellm.ai/docs/proxy/headroom"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-info underline"
-            >
-              Headroom setup docs
-            </a>
+            Headroom is a native EmbRouter guardrail that compresses your prompts before they reach the model, so you
+            pay for fewer input tokens. The tokens it removes are priced and shown on the Usage tab as compression
+            savings.
           </p>
           {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
           {!isLoading && guardrails.length === 0 && (

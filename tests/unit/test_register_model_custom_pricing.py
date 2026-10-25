@@ -213,7 +213,7 @@ def test_register_model_strips_none_litellm_provider():
     otherwise ``_check_provider_match`` will drop custom pricing on
     subsequent cost lookups.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/28336.
+
     """
     from litellm.utils import _check_provider_match
 
@@ -256,7 +256,7 @@ def test_register_model_strips_none_litellm_provider_from_get_model_info(monkeyp
     ``litellm.model_cost`` would carry ``litellm_provider: None`` and
     ``_check_provider_match`` would drop custom pricing.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/28336.
+
     """
     from litellm import utils as litellm_utils
     from litellm.utils import _check_provider_match
@@ -582,7 +582,7 @@ def test_router_custom_priced_deployment_warning_names_model_not_hash(caplog):
 
 
 def test_register_model_router_add_deployment_custom_pricing_applies():
-    """End-to-end regression for https://github.com/BerriAI/litellm/issues/28336.
+    """Regression test.
 
     ``Router.add_deployment`` registers custom pricing without passing
     ``litellm_provider``. Cost calculation must still pick up the custom

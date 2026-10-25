@@ -6,7 +6,7 @@ routing requests directly to https://openrouter.ai/api/v1/responses instead
 of falling back to the chat completion bridge. This is required to preserve
 reasoning.encrypted_content for multi-turn stateless workflows.
 
-Related issue: https://github.com/BerriAI/litellm/issues/22189
+
 """
 
 import pytest

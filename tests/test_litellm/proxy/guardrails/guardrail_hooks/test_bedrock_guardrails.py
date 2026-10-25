@@ -1075,7 +1075,7 @@ async def test_during_call_hook_still_scans_tool_result_turn_carrying_text():
     mock_post.assert_called_once()
     sent = mock_post.call_args.kwargs["data"].decode()
     assert "now summarize that" in sent
-    # tool_result text is not extracted by this path (https://github.com/BerriAI/litellm/issues/33086)
+    # tool_result text is not extracted by this path
     assert "18C and sunny" not in sent
 
 

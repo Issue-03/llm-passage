@@ -519,7 +519,6 @@ def _is_model_cost_zero(model: str | list[str] | None, llm_router: Router | None
 
             # Costs are 0 — verify this is from explicit configuration,
             # not from defaulted sparse auto-registration entries.
-            # See: https://github.com/BerriAI/litellm/issues/24770
             safe_name = str(model_name).replace("\n", "").replace("\r", "")
             if not _is_cost_explicitly_configured(model_name, llm_router):
                 verbose_proxy_logger.debug(
@@ -3273,7 +3272,7 @@ async def get_team_object(
         - HTTPException: If team doesn't exist in db or cache (status_code=404)
     """
     if prisma_client is None:
-        raise Exception("No DB Connected. See - https://docs.litellm.ai/docs/proxy/virtual_keys")
+        raise Exception("No DB Connected.")
 
     # check if in cache
     key: Final = f"team_id:{team_id}"
@@ -3364,7 +3363,7 @@ async def get_access_object(
         - HTTPException: If access group doesn't exist in db or cache (status_code=404)
     """
     if prisma_client is None:
-        raise Exception("No DB Connected. See - https://docs.litellm.ai/docs/proxy/virtual_keys")
+        raise Exception("No DB Connected.")
 
     key: Final = f"access_group_id:{access_group_id}"
 
@@ -3441,7 +3440,7 @@ async def get_team_object_by_alias(
         HTTPException: If team doesn't exist or multiple teams have the same alias
     """
     if prisma_client is None:
-        raise Exception("No DB Connected. See - https://docs.litellm.ai/docs/proxy/virtual_keys")
+        raise Exception("No DB Connected.")
 
     # Check cache first (keyed by alias)
     cache_key: Final = f"team_alias:{team_alias}"
@@ -3551,7 +3550,7 @@ async def get_org_object_by_alias(
         HTTPException: If organization not found or multiple orgs have the same alias
     """
     if prisma_client is None:
-        raise Exception("No DB Connected. See - https://docs.litellm.ai/docs/proxy/virtual_keys")
+        raise Exception("No DB Connected.")
 
     # Check cache first (keyed by alias)
     cache_key: Final = f"org_alias:{org_alias}"
@@ -3898,7 +3897,7 @@ async def get_key_object(
     - if not, then raise an error
     """
     if prisma_client is None:
-        raise Exception("No DB Connected. See - https://docs.litellm.ai/docs/proxy/virtual_keys")
+        raise Exception("No DB Connected.")
 
     # check if in cache
     key: Final = hashed_token
@@ -3993,7 +3992,7 @@ async def get_object_permission(
     - if not, then raise an error
     """
     if prisma_client is None:
-        raise Exception("No DB Connected. See - https://docs.litellm.ai/docs/proxy/virtual_keys")
+        raise Exception("No DB Connected.")
 
     # check if in cache
     key: Final = object_permission_cache_key(object_permission_id)
@@ -4126,7 +4125,7 @@ async def get_org_object(
         include_budget_table: If True, includes litellm_budget_table in the query
     """
     if prisma_client is None:
-        raise Exception("No DB Connected. See - https://docs.litellm.ai/docs/proxy/virtual_keys")
+        raise Exception("No DB Connected.")
     if not isinstance(org_id, str):
         return None
 

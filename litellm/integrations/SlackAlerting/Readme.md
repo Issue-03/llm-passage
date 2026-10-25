@@ -43,4 +43,4 @@ cache_id = budget_alert_class.get_id(user_info)  # Returns user_id
 To add a new budget alert type, simply create a new class that extends `BaseBudgetAlertType` and implements all the required methods, then add it to the dictionary in the `get_budget_alert_type()` function.
 
 ## Further Reading
-- [Doc setting up Alerting on LiteLLM Proxy (Gateway)](https://docs.litellm.ai/docs/proxy/alerting)
+- Doc setting up Alerting on LiteLLM Proxy (Gateway)

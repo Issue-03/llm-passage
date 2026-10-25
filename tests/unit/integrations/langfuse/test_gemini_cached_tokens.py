@@ -1,6 +1,6 @@
 """
 Test for Langfuse integration with Gemini cached_tokens bug
-https://github.com/BerriAI/litellm/issues/18520
+
 """
 
 import pytest
@@ -10,7 +10,7 @@ from litellm.types.utils import PromptTokensDetailsWrapper, Usage
 def test_cached_tokens_extraction():
     """
     Test that we can extract cached_tokens from prompt_tokens_details.
-    This is the core logic fix for https://github.com/BerriAI/litellm/issues/18520
+    Regression test.
     """
     # Create usage object like Gemini returns
     usage = Usage(

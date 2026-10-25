@@ -50,7 +50,7 @@ class ConfigRepository:
     @property
     def prisma_client(self) -> PrismaClient:
         if self._prisma_client is None:
-            raise RuntimeError("No DB Connected. See - https://docs.litellm.ai/docs/proxy/virtual_keys")
+            raise RuntimeError("No DB Connected.")
         return self._prisma_client
 
     @property

@@ -177,7 +177,6 @@ Message 1:
 
 - [IBM FMS Guardrails Documentation](https://github.com/foundation-model-stack/fms-guardrails-orchestr8)
 - [Detector API Gist](https://gist.github.com/RobGeada/fa886a6c723f06dee6becb583566d748)
-- [LiteLLM Guardrails Documentation](https://docs.litellm.ai/docs/proxy/guardrails)
 
 ## Environment Variables
 

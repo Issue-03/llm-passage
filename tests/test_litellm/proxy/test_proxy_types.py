@@ -47,7 +47,6 @@ def test_team_membership_null_budget_table():
     Regression test for: LiteLLM_TeamMembership.litellm_budget_table missing = None.
     In Pydantic v2, Optional[T] without a default is required; rows with budget_id=null
     raised a validation error and returned 401.
-    Related: https://github.com/BerriAI/litellm/issues/28689
     """
     from litellm.proxy._types import LiteLLM_TeamMembership
 
@@ -68,7 +67,7 @@ def test_internal_jobs_user_has_proxy_admin_role():
     PROXY_ADMIN role to bypass team permission checks in
     TeamMemberPermissionChecks.can_team_member_execute_key_management_endpoint()
 
-    Regression test for: https://github.com/BerriAI/litellm/pull/21896
+
     """
     from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
 

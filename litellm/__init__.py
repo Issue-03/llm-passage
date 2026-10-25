@@ -239,10 +239,10 @@ skip_tool_message_in_guardrail: bool = False
 ### end of callbacks #############
 
 email: Optional[str] = (
-    None  # Not used anymore, will be removed in next MAJOR release - https://github.com/BerriAI/litellm/discussions/648
+    None  # Not used anymore, will be removed in next MAJOR release
 )
 token: Optional[str] = (
-    None  # Not used anymore, will be removed in next MAJOR release - https://github.com/BerriAI/litellm/discussions/648
+    None  # Not used anymore, will be removed in next MAJOR release
 )
 max_tokens: int = DEFAULT_MAX_TOKENS  # OpenAI Defaults
 drop_params = drop_params_env_flag(os.environ, verbose_logger)
@@ -396,9 +396,9 @@ require_managed_files: bool = False  # proxy only - require target_model_names o
 enable_caching_on_provider_specific_optional_params: bool = (
     False  # feature-flag for caching on optional params - e.g. 'top_k'
 )
-caching: bool = False  # Not used anymore, will be removed in next MAJOR release - https://github.com/BerriAI/litellm/discussions/648
-caching_with_models: bool = False  # # Not used anymore, will be removed in next MAJOR release - https://github.com/BerriAI/litellm/discussions/648
-cache: Optional["Cache"] = None  # cache object <- use this - https://docs.litellm.ai/docs/caching
+caching: bool = False  # Not used anymore, will be removed in next MAJOR release
+caching_with_models: bool = False  # # Not used anymore, will be removed in next MAJOR release
+cache: Optional["Cache"] = None  # cache object <- use this
 default_in_memory_ttl: Optional[float] = None
 default_redis_ttl: Optional[float] = None
 default_redis_batch_cache_expiry: Optional[float] = None
@@ -424,19 +424,19 @@ aclient_session: Optional[httpx.AsyncClient] = None
 model_fallbacks: Optional[List] = None  # Deprecated for 'litellm.fallbacks'
 model_cost_map_url: str = os.getenv(
     "LITELLM_MODEL_COST_MAP_URL",
-    "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json",
+    "",
 )
 blog_posts_url: str = os.getenv(
     "LITELLM_BLOG_POSTS_URL",
-    "https://docs.litellm.ai/blog/rss.xml",
+    "",
 )
 anthropic_beta_headers_url: str = os.getenv(
     "LITELLM_ANTHROPIC_BETA_HEADERS_URL",
-    "https://raw.githubusercontent.com/BerriAI/litellm/main/litellm/anthropic_beta_headers_config.json",
+    "",
 )
 autorouter_presets_url: str = os.getenv(
     "LITELLM_AUTOROUTER_PRESETS_URL",
-    "https://raw.githubusercontent.com/BerriAI/litellm/main/litellm/proxy/public_endpoints/autorouter_presets.json",
+    "",
 )
 suppress_debug_info: bool = False
 dynamodb_table_name: Optional[str] = None
@@ -2284,7 +2284,6 @@ _async_client_cleanup_registered = False
 # Eager loading for backwards compatibility with VCR and other HTTP recording tools
 # When LITELLM_DISABLE_LAZY_LOADING is set, lazy-loaded attributes are loaded at import time
 # For now, this only affects encoding (tiktoken) as it was the only reported issue
-# See: https://github.com/BerriAI/litellm/issues/18659
 # This ensures encoding is initialized before VCR starts recording HTTP requests
 if os.getenv("LITELLM_DISABLE_LAZY_LOADING", "").lower() in ("1", "true", "yes", "on"):
     # Load encoding at import time (pre-#18070 behavior)

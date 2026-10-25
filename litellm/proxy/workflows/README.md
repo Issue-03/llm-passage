@@ -4,7 +4,7 @@ Generic durable state tracking for agents and automated workflows built on the L
 
 ## The Problem
 
-Agents like [shin-builder](https://github.com/BerriAI/shin-builder) run multi-stage pipelines (triage → plan → implement → PR). Their task state and conversation history lived in memory — a process restart lost everything.
+Agents like shin-builder run multi-stage pipelines (triage → plan → implement → PR). Their task state and conversation history lived in memory — a process restart lost everything.
 
 ## Three-Table Design
 

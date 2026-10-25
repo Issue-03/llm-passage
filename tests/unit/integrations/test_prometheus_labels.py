@@ -364,7 +364,7 @@ def test_route_normalization_for_responses_api():
     Test that route normalization prevents high cardinality in Prometheus metrics
     for the /v1/responses/{response_id} endpoint.
 
-    Issue: https://github.com/BerriAI/litellm/issues/XXXX
+
     Each unique response ID was creating a separate metric line, causing the
     /metrics endpoint to grow to ~30MB and take ~40 seconds to respond.
 

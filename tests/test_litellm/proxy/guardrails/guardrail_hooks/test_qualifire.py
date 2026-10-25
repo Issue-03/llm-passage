@@ -120,7 +120,7 @@ class TestQualifireGuardrailInit:
 
     def test_on_flagged_inject_system_message_raises_at_construction(self):
         """
-        Maintainer finding on BerriAI/litellm#34940: on_flagged is defined on
+        Maintainer finding: on_flagged is defined on
         LakeraV2GuardrailConfigModel, but LitellmParams flattens every guardrail
         config mixin together, so 'inject_system_message' type-checks for any
         guardrail's config, including Qualifire, which never implements it.
@@ -138,7 +138,7 @@ class TestQualifireGuardrailInit:
 
     def test_in_memory_update_reintroducing_inject_system_message_raises(self):
         """
-        Bugbot finding on BerriAI/litellm#34940: on_flagged is validated only in
+        Bugbot finding: on_flagged is validated only in
         __init__. The base CustomGuardrail.update_in_memory_litellm_params is a
         blind setattr loop with no revalidation, so a live config update (PUT
         /guardrails/{id}, no restart) could setattr on_flagged="inject_system_message"
